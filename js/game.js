@@ -5,6 +5,11 @@ const canvas = document.querySelector("#game-canvas");
 const context = canvas.getContext("2d");
 const stage = document.querySelector(".game-stage");
 const tankSprite = document.querySelector("#tank-sprite");
+const debugPresentationToggle = document.querySelector("#debug-presentation-toggle");
+const debugPresentationPanel = document.querySelector("#debug-presentation-panel");
+const debugStageSelect = document.querySelector("#debug-stage-select");
+const debugLoadStageButton = document.querySelector("#debug-load-stage-button");
+const debugRestartLevelButton = document.querySelector("#debug-restart-level-button");
 const gameOverOverlay = document.querySelector("#game-over-overlay");
 const gameOverScore = document.querySelector("#game-over-score");
 const gameOverLevel = document.querySelector("#game-over-level");
@@ -28,18 +33,27 @@ const startGameButton = document.querySelector("#start-game-button");
 const ENEMY_SPEED = 180;
 const TANK_SPEED = 260;
 const PROJECTILE_SPEED = 520;
-const TANK_START_X = 95;
-const TANK_START_Y = 550;
 const TANK_WIDTH = 165;
 const TANK_HEIGHT = 82;
+const TANK_START_X = (LOGICAL_WIDTH - TANK_WIDTH) / 2;
+const TANK_START_Y = 550;
 const TANK_MAX_HP = 100;
 const STARTING_WEAPON_LEVEL = 1;
 const PROJECTILE_FIRE_INTERVAL = 0.09;
 const MUZZLE_FLASH_DURATION = 0.055;
+const MUZZLE_SMOKE_DURATION = 0.34;
+const MUZZLE_SMOKE_MAX_PARTICLES = 28;
+const TANK_DUST_EMIT_INTERVAL = 0.045;
+const TANK_IDLE_DUST_EMIT_INTERVAL = 0.09;
+const TANK_DUST_DURATION = 0.42;
+const TANK_IDLE_DUST_DURATION = 0.38;
+const TANK_DUST_MAX_PARTICLES = 42;
 const ENEMY_LASER_LENGTH = 34;
 const ENEMY_LASER_LINE_WIDTH = 3;
 const LASER_TANK_IMPACT_DURATION = 0.16;
 const LASER_TANK_IMPACT_RADIUS = 14;
+const PROJECTILE_IMPACT_DURATION = 0.18;
+const BOSS_PROJECTILE_IMPACT_RADIUS = 18;
 const EXPLOSION_ASSET = "assets/gif/exploci\u00f3n3.gif";
 const EXPLOSION_DURATION = 0.75;
 const EXPLOSION_WIDTH = 80;
@@ -48,6 +62,8 @@ const GROUND_EXPLOSION_ASSET = "assets/gif/exploci\u00f3n2.gif";
 const GROUND_EXPLOSION_DURATION = 1.46;
 const GROUND_EXPLOSION_WIDTH = 67;
 const GROUND_EXPLOSION_HEIGHT = 171;
+const GROUND_LASER_IMPACT_FLASH_DURATION = 0.5;
+const GROUND_LASER_IMPACT_FLASH_RADIUS = 34;
 const TANK_DEATH_EXPLOSION_ASSET = "assets/gif/explosion.gif";
 const TANK_DEATH_EXPLOSION_DURATION = 1.7;
 const TANK_DEATH_EXPLOSION_WIDTH = 187;
@@ -100,7 +116,7 @@ const LEVEL_CONFIG = {
       height: 123,
       visualOffsetX: 0,
       visualOffsetY: 0,
-      maxHp: 300,
+      maxHp: 700,
       speed: 145,
       initialDirection: -1,
       trajectory: {
@@ -111,11 +127,15 @@ const LEVEL_CONFIG = {
       },
       laser: {
         speed: 420,
-        fireInterval: 0.95,
+        fireInterval: 0.85,
         damage: 15,
         length: 58,
         lineWidth: 7,
         type: "boss",
+      },
+      attackPattern: {
+        sequence: [1, 1, 2],
+        doubleSpreadDegrees: 10,
       },
       deathExplosion: {
         asset: TANK_DEATH_EXPLOSION_ASSET,
@@ -180,19 +200,31 @@ const SCORE_CONFIG = {
   normalEnemyDestroyed: 10,
 };
 
+const DEBUG_PRESENTATION_CONFIG = {
+  1: {
+    weaponLevelByStage: {
+      [STAGES.INICIO]: 1,
+      [STAGES.NUDO]: 1,
+      [STAGES.BOSS]: 2,
+    },
+  },
+};
+
 let currentLevel = 1;
 
 const gameState = {
-  status: GAME_STATES.PLAYING,
+  status: GAME_STATES.MENU,
   score: 0,
   stage: STAGES.INICIO,
   normalEnemiesDestroyed: 0,
 };
 
 const debug = {
-  enabled: true,
+  enabled: false,
   gridStep: 100,
-  groundY: 605,
+  groundY: TANK_START_Y + TANK_HEIGHT,
+  presentationPanelOpen: false,
+  presentationModeActive: false,
 };
 
 const tank = {
@@ -208,7 +240,7 @@ const tank = {
 
 const weapon = {
   level: STARTING_WEAPON_LEVEL,
-  projectileDamage: 20,
+  projectileDamage: 2,
   muzzlePoints: [
     { id: 1, offsetX: -8, offsetY: -50 },
     { id: 2, offsetX: 15, offsetY: -50 },
@@ -224,6 +256,92 @@ const input = {
 };
 
 const muzzleFlashes = [];
+
+const muzzleSmokeParticles = [];
+
+const tankDustManager = {
+  particles: [],
+  emitCooldown: 0,
+  idleEmitCooldown: 0,
+
+  update(deltaSeconds, movementDirection) {
+    this.emitCooldown -= deltaSeconds;
+    this.idleEmitCooldown -= deltaSeconds;
+
+    if (movementDirection !== 0 && this.emitCooldown <= 0) {
+      this.emit(movementDirection);
+      this.emitCooldown = TANK_DUST_EMIT_INTERVAL;
+    } else if (movementDirection === 0 && this.idleEmitCooldown <= 0) {
+      this.emitIdle();
+      this.idleEmitCooldown = TANK_IDLE_DUST_EMIT_INTERVAL;
+    }
+
+    for (let index = this.particles.length - 1; index >= 0; index -= 1) {
+      const particle = this.particles[index];
+      particle.age += deltaSeconds;
+      particle.x += particle.vx * deltaSeconds;
+      particle.y += particle.vy * deltaSeconds;
+      particle.vy -= 8 * deltaSeconds;
+      particle.radius += particle.growth * deltaSeconds;
+
+      if (particle.age >= particle.duration) this.particles.splice(index, 1);
+    }
+  },
+
+  emit(movementDirection) {
+    const rearX = movementDirection > 0 ? tank.x + 12 : tank.x + tank.width - 12;
+    const rearY = getTankGroundY() - 8;
+    const driftDirection = -movementDirection;
+
+    for (let count = 0; count < 3; count += 1) {
+      this.particles.push({
+        x: rearX + (Math.random() - 0.5) * 12,
+        y: rearY + (Math.random() - 0.5) * 8,
+        vx: driftDirection * (42 + Math.random() * 34),
+        vy: -18 - Math.random() * 18,
+        radius: 5 + Math.random() * 5,
+        growth: 18 + Math.random() * 14,
+        age: 0,
+        duration: TANK_DUST_DURATION,
+      });
+    }
+
+    if (this.particles.length > TANK_DUST_MAX_PARTICLES) {
+      this.particles.splice(0, this.particles.length - TANK_DUST_MAX_PARTICLES);
+    }
+  },
+
+  emitIdle() {
+    const rearY = getTankGroundY() - 7;
+    const sides = [
+      { x: tank.x + 14, drift: -1 },
+      { x: tank.x + tank.width + 8, drift: 1 },
+    ];
+
+    sides.forEach((side) => {
+      this.particles.push({
+        x: side.x + (Math.random() - 0.5) * 8,
+        y: rearY + (Math.random() - 0.5) * 5,
+        vx: side.drift * (26 + Math.random() * 26),
+        vy: -10 - Math.random() * 12,
+        radius: 4 + Math.random() * 4,
+        growth: 14 + Math.random() * 10,
+        age: 0,
+        duration: TANK_IDLE_DUST_DURATION,
+      });
+    });
+
+    if (this.particles.length > TANK_DUST_MAX_PARTICLES) {
+      this.particles.splice(0, this.particles.length - TANK_DUST_MAX_PARTICLES);
+    }
+  },
+
+  clear() {
+    this.particles = [];
+    this.emitCooldown = 0;
+    this.idleEmitCooldown = 0;
+  },
+};
 
 const projectileManager = {
   projectiles: [],
@@ -258,6 +376,7 @@ const projectileManager = {
         muzzleId: muzzle.id,
         activeTime: MUZZLE_FLASH_DURATION,
       });
+      createMuzzleSmoke(muzzle.x, muzzle.y + 4);
     });
   },
 
@@ -297,12 +416,17 @@ const enemyLaserManager = {
   },
 
   createLaser(source, laserConfig, options = {}) {
-    const tankCenter = getTankCenter();
     const originX = options.originX ?? source.x;
     const originY = options.originY ?? source.y;
-    const dx = tankCenter.x - originX;
-    const dy = tankCenter.y - originY;
-    const theta = Math.atan2(dy, dx);
+    let theta = options.theta;
+
+    if (theta === undefined) {
+      const tankCenter = getTankCenter();
+      const dx = tankCenter.x - originX;
+      const dy = tankCenter.y - originY;
+      theta = Math.atan2(dy, dx);
+    }
+
     const vx = laserConfig.speed * Math.cos(theta);
     const vy = laserConfig.speed * Math.sin(theta);
     const laser = {
@@ -320,8 +444,9 @@ const enemyLaserManager = {
 
     this.lasers.push(laser);
     this.lastShot = { theta, vx, vy, type: laser.type };
-    if (options.onShot) options.onShot({ theta, vx, vy });
+    if (options.onShot) options.onShot({ theta, vx, vy, originX, originY });
     this.nextId += 1;
+    return laser;
   },
 
   resolveLasers() {
@@ -341,6 +466,7 @@ const enemyLaserManager = {
 
       const groundImpact = getLaserGroundImpactPoint(laser);
       if (groundImpact) {
+        groundLaserImpactFlashManager.createImpact(groundImpact.x, debug.groundY, laser.type);
         explosionManager.createExplosion(groundImpact.x, debug.groundY, getGroundExplosionConfig());
         this.lasers.splice(index, 1);
         continue;
@@ -365,8 +491,9 @@ const explosionManager = {
 
   createExplosion(x, y, config = getEnemyExplosionConfig()) {
     const sprite = document.createElement("img");
+    const explosionId = this.nextId;
     const explosion = {
-      id: this.nextId,
+      id: explosionId,
       sprite,
       x,
       y,
@@ -379,7 +506,7 @@ const explosionManager = {
     };
 
     sprite.className = "game-sprite";
-    sprite.src = config.asset;
+    sprite.src = config.restartOnCreate ? `${config.asset}?restart=${explosionId}-${performance.now()}` : config.asset;
     sprite.alt = "Explosion";
     stage.appendChild(sprite);
 
@@ -428,6 +555,7 @@ function getGroundExplosionConfig() {
     height: GROUND_EXPLOSION_HEIGHT,
     offsetX: -GROUND_EXPLOSION_WIDTH / 2,
     offsetY: -170,
+    restartOnCreate: true,
   };
 }
 
@@ -467,6 +595,70 @@ const laserTankImpactManager = {
       y,
       duration: LASER_TANK_IMPACT_DURATION,
       remainingTime: LASER_TANK_IMPACT_DURATION,
+    });
+    this.nextId += 1;
+  },
+
+  update(deltaSeconds) {
+    for (let index = this.impacts.length - 1; index >= 0; index -= 1) {
+      const impact = this.impacts[index];
+      impact.remainingTime -= deltaSeconds;
+      if (impact.remainingTime > 0) continue;
+
+      this.impacts.splice(index, 1);
+    }
+  },
+
+  clear() {
+    this.impacts = [];
+    this.nextId = 1;
+  },
+};
+
+const projectileImpactManager = {
+  impacts: [],
+  nextId: 1,
+
+  createImpact(x, y, radius = BOSS_PROJECTILE_IMPACT_RADIUS) {
+    this.impacts.push({
+      id: this.nextId,
+      x,
+      y,
+      radius,
+      duration: PROJECTILE_IMPACT_DURATION,
+      remainingTime: PROJECTILE_IMPACT_DURATION,
+    });
+    this.nextId += 1;
+  },
+
+  update(deltaSeconds) {
+    for (let index = this.impacts.length - 1; index >= 0; index -= 1) {
+      const impact = this.impacts[index];
+      impact.remainingTime -= deltaSeconds;
+      if (impact.remainingTime > 0) continue;
+
+      this.impacts.splice(index, 1);
+    }
+  },
+
+  clear() {
+    this.impacts = [];
+    this.nextId = 1;
+  },
+};
+
+const groundLaserImpactFlashManager = {
+  impacts: [],
+  nextId: 1,
+
+  createImpact(x, y, laserType) {
+    this.impacts.push({
+      id: this.nextId,
+      x,
+      y,
+      laserType,
+      duration: GROUND_LASER_IMPACT_FLASH_DURATION,
+      remainingTime: GROUND_LASER_IMPACT_FLASH_DURATION,
     });
     this.nextId += 1;
   },
@@ -839,6 +1031,7 @@ const bossManager = {
   created: false,
   defeated: false,
   lastShot: null,
+  attackCounter: 0,
 
   tryCreateBoss() {
     if (this.created || this.defeated) return;
@@ -876,6 +1069,7 @@ const bossManager = {
     this.created = true;
     this.defeated = false;
     this.lastShot = null;
+    this.attackCounter = 0;
   },
 
   update(deltaSeconds) {
@@ -894,14 +1088,54 @@ const bossManager = {
     boss.laserCooldown -= deltaSeconds;
     if (boss.laserCooldown > 0) return;
 
-    enemyLaserManager.createLaser(boss, config.laser, {
+    this.fireBossAttack(boss, config);
+    boss.laserCooldown += config.laser.fireInterval;
+  },
+
+  fireBossAttack(boss, config) {
+    const attackNumber = this.attackCounter + 1;
+    const laserCount = getBossAttackLaserCount(config, this.attackCounter);
+    const attackType = laserCount === 2 ? "DOBLE" : "SIMPLE";
+    const shots = laserCount === 2 ? this.fireDoubleBossAttack(boss, config) : [this.fireSimpleBossAttack(boss, config)];
+
+    this.attackCounter += 1;
+    this.lastShot = {
+      attackNumber,
+      attackType,
+      shots,
+      theta: shots[0].theta,
+      vx: shots[0].vx,
+      vy: shots[0].vy,
+    };
+  },
+
+  fireSimpleBossAttack(boss, config) {
+    return enemyLaserManager.createLaser(boss, config.laser, {
       originX: boss.x,
       originY: boss.y,
-      onShot: (shot) => {
-        this.lastShot = shot;
-      },
     });
-    boss.laserCooldown += config.laser.fireInterval;
+  },
+
+  fireDoubleBossAttack(boss, config) {
+    const tankCenter = getTankCenter();
+    const dx = tankCenter.x - boss.x;
+    const dy = tankCenter.y - boss.y;
+    const theta = Math.atan2(dy, dx);
+    const spreadRadians = getBossDoubleSpreadRadians(config);
+    const origins = getBossDoubleLaserOrigins(boss);
+
+    return [
+      enemyLaserManager.createLaser(boss, config.laser, {
+        originX: origins[0].x,
+        originY: origins[0].y,
+        theta: theta - spreadRadians,
+      }),
+      enemyLaserManager.createLaser(boss, config.laser, {
+        originX: origins[1].x,
+        originY: origins[1].y,
+        theta: theta + spreadRadians,
+      }),
+    ];
   },
 
   damageBoss(damage) {
@@ -915,15 +1149,17 @@ const bossManager = {
   defeatBoss() {
     const boss = this.boss;
     if (!boss || boss.deathProcessed) return;
+    const onDeathComplete = isDebugRunActive() ? showDebugTerminalControls : showLevelComplete;
 
     boss.deathProcessed = true;
     this.defeated = true;
     this.created = true;
     this.lastShot = null;
+    this.attackCounter = 0;
     gameState.status = GAME_STATES.BOSS_DEFEATED;
     clearInputState();
     enemyLaserManager.clear();
-    explosionManager.createExplosion(boss.x, boss.y, getBossDeathExplosionConfig(showLevelComplete));
+    explosionManager.createExplosion(boss.x, boss.y, getBossDeathExplosionConfig(onDeathComplete));
     boss.sprite.remove();
     this.boss = null;
   },
@@ -934,6 +1170,7 @@ const bossManager = {
     this.created = false;
     this.defeated = false;
     this.lastShot = null;
+    this.attackCounter = 0;
   },
 };
 
@@ -979,6 +1216,30 @@ function getCurrentBossConfig() {
   return getCurrentLevelConfig().boss;
 }
 
+function getBossAttackPattern(config = getCurrentBossConfig()) {
+  return config.attackPattern;
+}
+
+function getBossAttackLaserCount(config = getCurrentBossConfig(), attackIndex = bossManager.attackCounter) {
+  const pattern = getBossAttackPattern(config).sequence;
+  return pattern[attackIndex % pattern.length];
+}
+
+function getBossNextAttackType() {
+  return getBossAttackLaserCount() === 2 ? "DOBLE" : "SIMPLE";
+}
+
+function getBossDoubleSpreadRadians(config = getCurrentBossConfig()) {
+  return getBossAttackPattern(config).doubleSpreadDegrees * Math.PI / 180;
+}
+
+function getBossDoubleLaserOrigins(boss) {
+  return [
+    { x: boss.x - boss.width / 6, y: boss.y },
+    { x: boss.x + boss.width / 6, y: boss.y },
+  ];
+}
+
 function getInitialEnemyLaserCooldown(enemyId) {
   const laserConfig = getCurrentEnemyLaserConfig();
   const spreadSlots = enemyVariants.length;
@@ -1021,6 +1282,10 @@ function isGameplayActive() {
   return gameState.status === GAME_STATES.PLAYING && tank.alive;
 }
 
+function isDebugRunActive() {
+  return debug.enabled || debug.presentationModeActive;
+}
+
 function clearInputState() {
   input.left = false;
   input.right = false;
@@ -1036,16 +1301,23 @@ function beginTankDeath() {
   gameState.status = GAME_STATES.PLAYER_DYING;
   clearInputState();
   muzzleFlashes.length = 0;
+  muzzleSmokeParticles.length = 0;
+  tankDustManager.clear();
+  const onDeathComplete = isDebugRunActive() ? showDebugTerminalControls : showGameOver;
 
   explosionManager.createExplosion(
     tankCenter.x,
     tankCenter.y,
-    getTankDeathExplosionConfig(showGameOver),
+    getTankDeathExplosionConfig(onDeathComplete),
   );
 }
 
 function showGameOver() {
   if (gameState.status !== GAME_STATES.PLAYER_DYING) return;
+  if (isDebugRunActive()) {
+    showDebugTerminalControls();
+    return;
+  }
 
   gameState.status = GAME_STATES.GAME_OVER;
   gameOverScore.textContent = `PUNTOS: ${gameState.score}`;
@@ -1059,6 +1331,10 @@ function hideGameOver() {
 
 function showLevelComplete() {
   if (gameState.status !== GAME_STATES.BOSS_DEFEATED) return;
+  if (isDebugRunActive()) {
+    showDebugTerminalControls();
+    return;
+  }
 
   gameState.status = GAME_STATES.LEVEL_COMPLETE;
   levelCompleteTitle.textContent = `NIVEL ${currentLevel} SUPERADO`;
@@ -1091,6 +1367,13 @@ function hideMainMenu() {
   mainMenuOverlay.hidden = true;
 }
 
+function hideAllOverlays() {
+  hideGameOver();
+  hideLevelComplete();
+  hideNextLevelPreview();
+  hideMainMenu();
+}
+
 function cleanupCurrentAttempt() {
   projectileManager.clear();
   enemyLaserManager.clear();
@@ -1099,9 +1382,13 @@ function cleanupCurrentAttempt() {
   explosionManager.clear();
   enemyDeathVisualManager.clear();
   laserTankImpactManager.clear();
+  projectileImpactManager.clear();
+  groundLaserImpactFlashManager.clear();
   healthDropManager.clear();
   powerUpManager.clear();
   muzzleFlashes.length = 0;
+  muzzleSmokeParticles.length = 0;
+  tankDustManager.clear();
   clearInputState();
 }
 
@@ -1113,10 +1400,19 @@ function cleanupCompletedLevel() {
   explosionManager.clear();
   enemyDeathVisualManager.clear();
   laserTankImpactManager.clear();
+  projectileImpactManager.clear();
+  groundLaserImpactFlashManager.clear();
   healthDropManager.clear();
   powerUpManager.clear();
   muzzleFlashes.length = 0;
+  muzzleSmokeParticles.length = 0;
+  tankDustManager.clear();
   clearInputState();
+}
+
+function cleanupForDebugPresentation() {
+  cleanupCurrentAttempt();
+  hideAllOverlays();
 }
 
 function resetCurrentLevelState() {
@@ -1140,21 +1436,18 @@ function resetCurrentLevelState() {
 
 function restartCurrentLevel() {
   cleanupCurrentAttempt();
+  debug.presentationModeActive = false;
   resetCurrentLevelState();
-  hideGameOver();
-  hideLevelComplete();
-  hideNextLevelPreview();
-  hideMainMenu();
+  hideAllOverlays();
 }
 
 function returnToMainMenu() {
   cleanupCurrentAttempt();
+  debug.presentationModeActive = false;
   currentLevel = 1;
   resetCurrentLevelState();
   gameState.status = GAME_STATES.MENU;
-  hideGameOver();
-  hideLevelComplete();
-  hideNextLevelPreview();
+  hideAllOverlays();
   showMainMenu();
 }
 
@@ -1174,16 +1467,145 @@ function goToNextLevelPreview() {
   showNextLevelPreview();
 }
 
+function getDebugPresentationStageConfig(stageName) {
+  const level = 1;
+  const levelConfig = LEVEL_CONFIG[level];
+  const debugConfig = DEBUG_PRESENTATION_CONFIG[level];
+  const inicioTarget = levelConfig.stages[STAGES.INICIO].normalKillTarget;
+  const nudoTarget = levelConfig.stages[STAGES.NUDO].normalKillTarget;
+  const killsByStage = {
+    [STAGES.INICIO]: 0,
+    [STAGES.NUDO]: inicioTarget,
+    [STAGES.BOSS]: nudoTarget,
+  };
+  const normalEnemiesDestroyed = killsByStage[stageName] ?? 0;
+
+  return {
+    level,
+    stage: stageName,
+    normalEnemiesDestroyed,
+    score: normalEnemiesDestroyed * SCORE_CONFIG.normalEnemyDestroyed,
+    weaponLevel: debugConfig.weaponLevelByStage[stageName] ?? levelConfig.start.weaponLevel,
+    tankHp: levelConfig.start.tankHp,
+  };
+}
+
+function applyDebugPresentationStage(stageName) {
+  const config = getDebugPresentationStageConfig(stageName);
+
+  cleanupForDebugPresentation();
+  debug.presentationModeActive = true;
+  currentLevel = config.level;
+  gameState.stage = config.stage;
+  gameState.normalEnemiesDestroyed = config.normalEnemiesDestroyed;
+  gameState.score = config.score;
+  gameState.status = GAME_STATES.PLAYING;
+
+  tank.x = LEVEL_CONFIG[currentLevel].start.tankX;
+  tank.y = LEVEL_CONFIG[currentLevel].start.tankY;
+  tank.hp = config.tankHp;
+  tank.maxHp = TANK_MAX_HP;
+  tank.alive = true;
+  tank.visible = true;
+
+  weapon.level = config.weaponLevel;
+  enemyManager.spawnTimer = 0;
+  configureDebugPresentationHeavyState(config);
+
+  if (config.stage === STAGES.BOSS) {
+    bossManager.tryCreateBoss();
+  }
+
+  updateDebugPresentationPanelVisibility();
+}
+
+function configureDebugPresentationHeavyState(config) {
+  const heavyConfig = LEVEL_CONFIG[config.level].powerUps?.heavyMachineGun;
+  const heavyWasAvailable = Boolean(heavyConfig && config.normalEnemiesDestroyed >= heavyConfig.normalKillTrigger);
+
+  powerUpManager.heavyMachineGun.generated = heavyWasAvailable;
+  powerUpManager.heavyMachineGun.collected = heavyWasAvailable;
+  powerUpManager.heavyMachineGun.active = null;
+}
+
+function restartCurrentLevelFromDebug() {
+  restartCurrentLevel();
+  updateDebugPresentationPanelVisibility();
+}
+
+function setDebugPresentationPanelOpen(isOpen) {
+  debug.presentationPanelOpen = isOpen;
+  if (isOpen) {
+    debugStageSelect.value = Object.values(STAGES).includes(gameState.stage) ? gameState.stage : STAGES.INICIO;
+  }
+  updateDebugPresentationPanelVisibility();
+}
+
+function showDebugTerminalControls() {
+  debug.enabled = true;
+  hideAllOverlays();
+  setDebugPresentationPanelOpen(true);
+}
+
+function updateDebugPresentationPanelVisibility() {
+  const canUsePresentationPanel =
+    isDebugRunActive() &&
+    gameState.status !== GAME_STATES.LEVEL_PREVIEW;
+
+  if (!canUsePresentationPanel) {
+    debug.presentationPanelOpen = false;
+  }
+
+  debugPresentationToggle.hidden = !canUsePresentationPanel;
+  debugPresentationToggle.setAttribute("aria-pressed", String(debug.presentationPanelOpen && canUsePresentationPanel));
+  debugPresentationPanel.hidden = !(canUsePresentationPanel && debug.presentationPanelOpen);
+}
+
 function updateTank(deltaSeconds) {
   const direction = Number(input.right) - Number(input.left);
+  const previousX = tank.x;
   tank.x += direction * TANK_SPEED * deltaSeconds;
   tank.x = Math.max(0, Math.min(LOGICAL_WIDTH - tank.width, tank.x));
+  const movementDirection = Math.sign(tank.x - previousX);
+  tankDustManager.update(deltaSeconds, movementDirection);
 }
 
 function updateMuzzleFlash(deltaSeconds) {
   for (let index = muzzleFlashes.length - 1; index >= 0; index -= 1) {
     muzzleFlashes[index].activeTime -= deltaSeconds;
     if (muzzleFlashes[index].activeTime <= 0) muzzleFlashes.splice(index, 1);
+  }
+}
+
+function createMuzzleSmoke(x, y) {
+  for (let count = 0; count < 2; count += 1) {
+    muzzleSmokeParticles.push({
+      x: x + (Math.random() - 0.5) * 5,
+      y: y + (Math.random() - 0.5) * 3,
+      vx: (Math.random() - 0.5) * 12,
+      vy: -18 - Math.random() * 12,
+      radius: 4 + Math.random() * 3,
+      growth: 8 + Math.random() * 6,
+      age: 0,
+      duration: MUZZLE_SMOKE_DURATION,
+    });
+  }
+
+  if (muzzleSmokeParticles.length > MUZZLE_SMOKE_MAX_PARTICLES) {
+    muzzleSmokeParticles.splice(0, muzzleSmokeParticles.length - MUZZLE_SMOKE_MAX_PARTICLES);
+  }
+}
+
+function updateMuzzleSmoke(deltaSeconds) {
+  for (let index = muzzleSmokeParticles.length - 1; index >= 0; index -= 1) {
+    const smoke = muzzleSmokeParticles[index];
+    smoke.age += deltaSeconds;
+    smoke.x += smoke.vx * deltaSeconds;
+    smoke.y += smoke.vy * deltaSeconds;
+    smoke.vy *= 0.96;
+    smoke.radius += smoke.growth * deltaSeconds;
+
+    if (smoke.age >= smoke.duration) muzzleSmokeParticles.splice(index, 1);
   }
 }
 
@@ -1268,14 +1690,24 @@ function handleProjectileEnemyCollisions() {
 
     if (!enemy) {
       const boss = bossManager.boss;
-      if (boss && isProjectileCollidingWithEnemy(projectile, boss)) {
+      const bossImpactPoint = boss ? getProjectileEnemyImpactPoint(projectile, boss) : null;
+      if (bossImpactPoint) {
         projectileManager.projectiles.splice(projectileIndex, 1);
+        projectileImpactManager.createImpact(bossImpactPoint.x, bossImpactPoint.y, BOSS_PROJECTILE_IMPACT_RADIUS);
         bossManager.damageBoss(weapon.projectileDamage);
       }
       continue;
     }
 
+    const enemyImpactPoint = getProjectileEnemyImpactPoint(projectile, enemy);
     projectileManager.projectiles.splice(projectileIndex, 1);
+    if (enemyImpactPoint) {
+      projectileImpactManager.createImpact(
+        enemyImpactPoint.x,
+        enemyImpactPoint.y,
+        getNormalEnemyProjectileImpactRadius(enemy),
+      );
+    }
     enemy.hp -= weapon.projectileDamage;
 
     if (enemy.hp <= 0) {
@@ -1325,6 +1757,10 @@ function enterStage(stageName) {
 }
 
 function isProjectileCollidingWithEnemy(projectile, enemy) {
+  return Boolean(getProjectileEnemyOverlap(projectile, enemy));
+}
+
+function getProjectileEnemyOverlap(projectile, enemy) {
   const projectileLeft = projectile.x - projectile.width / 2;
   const projectileRight = projectile.x + projectile.width / 2;
   const projectileTop = projectile.y;
@@ -1334,12 +1770,34 @@ function isProjectileCollidingWithEnemy(projectile, enemy) {
   const enemyTop = enemy.y - enemy.height / 2;
   const enemyBottom = enemy.y + enemy.height / 2;
 
-  return (
-    projectileRight >= enemyLeft &&
-    projectileLeft <= enemyRight &&
-    projectileBottom >= enemyTop &&
-    projectileTop <= enemyBottom
-  );
+  const left = Math.max(projectileLeft, enemyLeft);
+  const right = Math.min(projectileRight, enemyRight);
+  const top = Math.max(projectileTop, enemyTop);
+  const bottom = Math.min(projectileBottom, enemyBottom);
+
+  if (right < left || bottom < top) return null;
+
+  return {
+    left,
+    right,
+    top,
+    bottom,
+    enemyBottom,
+  };
+}
+
+function getProjectileEnemyImpactPoint(projectile, enemy) {
+  const overlap = getProjectileEnemyOverlap(projectile, enemy);
+  if (!overlap) return null;
+
+  return {
+    x: (overlap.left + overlap.right) / 2,
+    y: overlap.enemyBottom,
+  };
+}
+
+function getNormalEnemyProjectileImpactRadius(enemy) {
+  return Math.max(6.5, Math.min(11.5, enemy.width * 0.12));
 }
 
 function isPowerUpCollidingWithTank(powerUp) {
@@ -1521,11 +1979,11 @@ function getActiveTrajectoryConfigs() {
     });
   });
 
-  if (gameState.stage === STAGES.BOSS && bossManager.boss) {
+  if (gameState.stage === STAGES.BOSS && (bossManager.boss || bossManager.created)) {
     configs.set("boss-1", {
-      color: "#ff4d4d",
+      color: "#55ff7a",
       label: "Boss 1 seno",
-      trajectory: bossManager.boss.trajectory,
+      trajectory: bossManager.boss?.trajectory ?? getCurrentBossConfig().trajectory,
     });
   }
 
@@ -1570,6 +2028,7 @@ function drawDebug() {
   drawTankCoordinates(tank, "Tanque", "#9effa8");
   drawMuzzleDebugPoints();
   enemyManager.enemies.forEach(drawEnemyCoordinates);
+  drawBossDebugBounds();
 
   const panelX = 14;
   let panelY = 42;
@@ -1622,6 +2081,11 @@ function drawDebug() {
     drawDebugText(`Boss ecuacion: ${getTrajectoryEquation(bossTrajectory)}`, panelX, panelY);
     panelY += 20;
     drawDebugText(`Boss X=${boss ? boss.x.toFixed(1) : "n/a"} | Y=${boss ? boss.y.toFixed(1) : "n/a"} | dir=${boss ? boss.direction : "n/a"}`, panelX, panelY);
+    panelY += 20;
+    drawDebugText(`Boss ataques: ${bossManager.attackCounter}`, panelX, panelY);
+    drawDebugText(`Proximo ataque: ${getBossNextAttackType()}`, panelX + 250, panelY);
+    panelY += 20;
+    drawDebugText(`Spread doble: ${bossConfig.attackPattern.doubleSpreadDegrees} grados`, panelX, panelY);
     panelY += 20;
     drawDebugText(`Boss theta: ${formatBossShotTheta()}`, panelX, panelY);
     panelY += 20;
@@ -1727,12 +2191,22 @@ function drawScoreHud() {
 function drawProjectiles() {
   context.save();
   projectileManager.projectiles.forEach((projectile) => {
+    const x = projectile.x - projectile.width / 2;
+    const outlineWidth = projectile.width + 4;
+    const outlineX = projectile.x - outlineWidth / 2;
     const gradient = context.createLinearGradient(projectile.x, projectile.y, projectile.x, projectile.y + projectile.height);
     gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
     gradient.addColorStop(0.45, "rgba(255, 242, 115, 1)");
     gradient.addColorStop(1, "rgba(255, 132, 38, 0.45)");
+
+    context.fillStyle = "rgba(0, 0, 0, 0.58)";
+    context.fillRect(outlineX, projectile.y - 1, outlineWidth, projectile.height + 2);
+
+    context.fillStyle = "rgba(255, 70, 20, 0.28)";
+    context.fillRect(projectile.x - projectile.width, projectile.y - 2, projectile.width * 2, projectile.height + 4);
+
     context.fillStyle = gradient;
-    context.fillRect(projectile.x - projectile.width / 2, projectile.y, projectile.width, projectile.height);
+    context.fillRect(x, projectile.y, projectile.width, projectile.height);
   });
   context.restore();
 }
@@ -1756,6 +2230,13 @@ function drawEnemyLasers() {
     }
 
     context.lineCap = "round";
+    context.strokeStyle = "rgba(0, 0, 0, 0.58)";
+    context.lineWidth = lineWidth + (isBossLaser ? 20 : 14);
+    context.beginPath();
+    context.moveTo(endX, endY);
+    context.lineTo(laser.x, laser.y);
+    context.stroke();
+
     context.strokeStyle = isBossLaser ? "rgba(255, 20, 20, 0.25)" : "rgba(62, 255, 126, 0.22)";
     context.lineWidth = lineWidth + (isBossLaser ? 13 : 8);
     context.beginPath();
@@ -1789,6 +2270,20 @@ function drawLaserTankImpacts() {
 
     context.globalAlpha = progress;
     context.lineCap = "round";
+    context.fillStyle = "rgba(0, 0, 0, 0.42)";
+    context.beginPath();
+    context.arc(impact.x, impact.y, glowRadius * 1.1, 0, 2 * Math.PI);
+    context.fill();
+
+    context.strokeStyle = "rgba(0, 0, 0, 0.75)";
+    context.lineWidth = 12 * progress;
+    context.beginPath();
+    context.moveTo(impact.x - radius * 1.15, impact.y);
+    context.lineTo(impact.x + radius * 1.15, impact.y);
+    context.moveTo(impact.x, impact.y - radius * 1.15);
+    context.lineTo(impact.x, impact.y + radius * 1.15);
+    context.stroke();
+
     context.strokeStyle = "rgba(105, 255, 160, 0.35)";
     context.lineWidth = 8 * progress;
     context.beginPath();
@@ -1812,6 +2307,104 @@ function drawLaserTankImpacts() {
   context.restore();
 }
 
+function drawProjectileImpacts() {
+  context.save();
+  projectileImpactManager.impacts.forEach((impact) => {
+    const progress = Math.max(0, impact.remainingTime / impact.duration);
+    const age = 1 - progress;
+    const radius = impact.radius * (0.45 + age * 0.9);
+
+    context.globalAlpha = progress;
+    context.lineCap = "round";
+
+    context.fillStyle = "rgba(0, 0, 0, 0.55)";
+    context.beginPath();
+    context.arc(impact.x, impact.y, radius * 1.15, 0, 2 * Math.PI);
+    context.fill();
+
+    context.strokeStyle = "rgba(255, 246, 165, 0.35)";
+    context.lineWidth = 10 * progress;
+    context.beginPath();
+    context.arc(impact.x, impact.y, radius, 0, 2 * Math.PI);
+    context.stroke();
+
+    context.strokeStyle = "rgba(255, 156, 45, 0.92)";
+    context.lineWidth = 4;
+    context.beginPath();
+    context.moveTo(impact.x - radius, impact.y);
+    context.lineTo(impact.x + radius, impact.y);
+    context.moveTo(impact.x, impact.y - radius);
+    context.lineTo(impact.x, impact.y + radius);
+    context.stroke();
+
+    context.fillStyle = "rgba(255, 255, 220, 0.96)";
+    context.beginPath();
+    context.arc(impact.x, impact.y, Math.max(3, radius * 0.18), 0, 2 * Math.PI);
+    context.fill();
+  });
+  context.restore();
+}
+
+function drawGroundLaserImpactFlashes() {
+  context.save();
+  groundLaserImpactFlashManager.impacts.forEach((impact) => {
+    const progress = Math.max(0, impact.remainingTime / impact.duration);
+    const age = 1 - progress;
+    const flicker = 0.9 + Math.sin(age * 36) * 0.1;
+    const isBossLaser = impact.laserType === "boss";
+    const coreColor = isBossLaser ? "rgba(255, 235, 235, 0.95)" : "rgba(220, 255, 230, 0.95)";
+    const glowColor = isBossLaser ? "rgba(255, 42, 42, 0.48)" : "rgba(70, 255, 142, 0.45)";
+    const outerGlowColor = isBossLaser ? "rgba(255, 20, 20, 0.18)" : "rgba(50, 255, 126, 0.16)";
+    const radius = GROUND_LASER_IMPACT_FLASH_RADIUS * (0.55 + age * 0.45);
+
+    context.lineCap = "round";
+
+    context.globalAlpha = progress * 0.75;
+    context.fillStyle = "rgba(0, 0, 0, 0.42)";
+    context.beginPath();
+    context.ellipse(impact.x, impact.y + 1, radius * 1.6, radius * 0.45, 0, 0, 2 * Math.PI);
+    context.fill();
+
+    context.globalAlpha = progress * flicker;
+    context.strokeStyle = "rgba(0, 0, 0, 0.72)";
+    context.lineWidth = 8 * progress;
+    context.beginPath();
+    context.moveTo(impact.x, impact.y + 2);
+    context.lineTo(impact.x, impact.y - radius * 1.65);
+    context.stroke();
+
+    context.globalAlpha = progress * flicker;
+    context.fillStyle = outerGlowColor;
+    context.beginPath();
+    context.ellipse(impact.x, impact.y, radius * 1.35, radius * 0.34, 0, 0, 2 * Math.PI);
+    context.fill();
+
+    context.globalAlpha = progress * flicker;
+    context.strokeStyle = glowColor;
+    context.lineWidth = 6 * progress;
+    context.beginPath();
+    context.arc(impact.x, impact.y, radius, Math.PI * 1.05, Math.PI * 1.95);
+    context.stroke();
+
+    context.globalAlpha = progress * flicker;
+    context.strokeStyle = coreColor;
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(impact.x, impact.y);
+    context.lineTo(impact.x, impact.y - radius * 1.45);
+    context.moveTo(impact.x - radius * 0.45, impact.y - radius * 0.28);
+    context.lineTo(impact.x + radius * 0.45, impact.y - radius * 0.28);
+    context.stroke();
+
+    context.globalAlpha = progress * flicker;
+    context.fillStyle = coreColor;
+    context.beginPath();
+    context.arc(impact.x, impact.y, Math.max(3, radius * 0.13), 0, 2 * Math.PI);
+    context.fill();
+  });
+  context.restore();
+}
+
 function drawHealthDrops() {
   context.save();
   healthDropManager.drops.forEach((drop) => {
@@ -1823,8 +2416,14 @@ function drawHealthDrops() {
     context.translate(drop.x, drop.y);
     context.scale(pulse, pulse);
 
-    context.fillStyle = "rgba(25, 255, 126, 0.22)";
-    context.strokeStyle = "rgba(170, 255, 205, 0.92)";
+    context.fillStyle = "rgba(0, 0, 0, 0.62)";
+    context.fillRect(-half - 4, -half - 4, boxSize + 8, boxSize + 8);
+    context.strokeStyle = "rgba(0, 0, 0, 0.95)";
+    context.lineWidth = 6;
+    context.strokeRect(-half - 2, -half - 2, boxSize + 4, boxSize + 4);
+
+    context.fillStyle = "rgba(15, 150, 78, 0.72)";
+    context.strokeStyle = "rgba(170, 255, 205, 1)";
     context.lineWidth = 3;
     context.fillRect(-half, -half, boxSize, boxSize);
     context.strokeRect(-half, -half, boxSize, boxSize);
@@ -1832,15 +2431,34 @@ function drawHealthDrops() {
     context.fillStyle = "rgba(255, 255, 255, 0.16)";
     context.fillRect(-half + 6, -half + 6, boxSize - 12, 7);
 
+    context.lineCap = "round";
+    context.strokeStyle = "rgba(0, 0, 0, 0.86)";
+    context.lineWidth = 8;
+    context.beginPath();
+    context.moveTo(-half * 0.38, half * 0.34);
+    context.lineTo(half * 0.28, -half * 0.32);
+    context.stroke();
+
     context.strokeStyle = "#f4f7f0";
     context.lineWidth = 5;
-    context.lineCap = "round";
     context.beginPath();
     context.moveTo(-half * 0.38, half * 0.34);
     context.lineTo(half * 0.28, -half * 0.32);
     context.stroke();
 
     context.strokeStyle = "#b9c2ba";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(half * 0.34, -half * 0.38, half * 0.2, 0.35 * Math.PI, 1.65 * Math.PI);
+    context.stroke();
+
+    context.strokeStyle = "rgba(0, 0, 0, 0.78)";
+    context.lineWidth = 6;
+    context.beginPath();
+    context.arc(half * 0.34, -half * 0.38, half * 0.2, 0.35 * Math.PI, 1.65 * Math.PI);
+    context.stroke();
+
+    context.strokeStyle = "#d9e4db";
     context.lineWidth = 3;
     context.beginPath();
     context.arc(half * 0.34, -half * 0.38, half * 0.2, 0.35 * Math.PI, 1.65 * Math.PI);
@@ -1868,12 +2486,16 @@ function formatLastLaserComponent(component) {
 
 function formatBossShotTheta() {
   if (!bossManager.lastShot) return "n/a";
-  return `${bossManager.lastShot.theta.toFixed(3)} rad | ${(bossManager.lastShot.theta * 180 / Math.PI).toFixed(1)} grados`;
+  const shots = bossManager.lastShot.shots ?? [bossManager.lastShot];
+  return shots
+    .map((shot, index) => `L${index + 1}: ${shot.theta.toFixed(3)} rad | ${(shot.theta * 180 / Math.PI).toFixed(1)} grados`)
+    .join(" / ");
 }
 
 function formatBossShotComponent(component) {
   if (!bossManager.lastShot) return "n/a";
-  return bossManager.lastShot[component].toFixed(1);
+  const shots = bossManager.lastShot.shots ?? [bossManager.lastShot];
+  return shots.map((shot, index) => `L${index + 1}:${shot[component].toFixed(1)}`).join(" / ");
 }
 
 function getBossDebugState() {
@@ -1891,21 +2513,76 @@ function drawMuzzleFlash() {
 
     const muzzle = getMuzzlePoint(muzzleConfig);
     const progress = flash.activeTime / MUZZLE_FLASH_DURATION;
-    const radius = 8 + 8 * progress;
+    const radius = 9 + 10 * progress;
 
     context.globalAlpha = 0.35 + 0.65 * progress;
-    context.fillStyle = "#fff5a8";
+    context.fillStyle = "#fff0b8";
     context.beginPath();
-    context.arc(muzzle.x, muzzle.y, radius * 0.55, 0, 2 * Math.PI);
+    context.arc(muzzle.x, muzzle.y, radius * 0.62, 0, 2 * Math.PI);
     context.fill();
 
-    context.fillStyle = "#ff7a24";
+    context.fillStyle = "rgba(255, 35, 18, 0.7)";
     context.beginPath();
-    context.moveTo(muzzle.x, muzzle.y - radius * 1.3);
-    context.lineTo(muzzle.x - radius * 0.55, muzzle.y + radius * 0.25);
+    context.arc(muzzle.x, muzzle.y + radius * 0.08, radius * 0.82, 0, 2 * Math.PI);
+    context.fill();
+
+    context.fillStyle = "#ff2b12";
+    context.beginPath();
+    context.moveTo(muzzle.x, muzzle.y - radius * 1.38);
+    context.lineTo(muzzle.x - radius * 0.62, muzzle.y + radius * 0.28);
     context.lineTo(muzzle.x, muzzle.y + radius * 0.05);
-    context.lineTo(muzzle.x + radius * 0.55, muzzle.y + radius * 0.25);
+    context.lineTo(muzzle.x + radius * 0.62, muzzle.y + radius * 0.28);
     context.closePath();
+    context.fill();
+
+    context.fillStyle = "#ffb02e";
+    context.beginPath();
+    context.moveTo(muzzle.x, muzzle.y - radius * 0.82);
+    context.lineTo(muzzle.x - radius * 0.28, muzzle.y + radius * 0.08);
+    context.lineTo(muzzle.x + radius * 0.28, muzzle.y + radius * 0.08);
+    context.closePath();
+    context.fill();
+  });
+  context.restore();
+}
+
+function drawMuzzleSmoke() {
+  context.save();
+  muzzleSmokeParticles.forEach((smoke) => {
+    const progress = Math.max(0, 1 - smoke.age / smoke.duration);
+    const radius = smoke.radius;
+
+    context.globalAlpha = progress * 0.52;
+    context.fillStyle = "rgba(62, 52, 46, 0.72)";
+    context.beginPath();
+    context.ellipse(smoke.x, smoke.y, radius * 1.15, radius * 0.72, 0, 0, 2 * Math.PI);
+    context.fill();
+
+    context.globalAlpha = progress * 0.32;
+    context.fillStyle = "rgba(210, 190, 160, 0.58)";
+    context.beginPath();
+    context.ellipse(smoke.x - radius * 0.12, smoke.y - radius * 0.15, radius * 0.82, radius * 0.5, 0, 0, 2 * Math.PI);
+    context.fill();
+  });
+  context.restore();
+}
+
+function drawTankDust() {
+  context.save();
+  tankDustManager.particles.forEach((particle) => {
+    const progress = Math.max(0, 1 - particle.age / particle.duration);
+    const radius = particle.radius;
+
+    context.globalAlpha = progress * 0.76;
+    context.fillStyle = "rgba(94, 64, 29, 0.78)";
+    context.beginPath();
+    context.ellipse(particle.x, particle.y, radius * 1.55, radius * 0.72, 0, 0, 2 * Math.PI);
+    context.fill();
+
+    context.globalAlpha = progress * 0.48;
+    context.fillStyle = "rgba(220, 178, 92, 0.72)";
+    context.beginPath();
+    context.ellipse(particle.x - radius * 0.18, particle.y - radius * 0.18, radius, radius * 0.48, 0, 0, 2 * Math.PI);
     context.fill();
   });
   context.restore();
@@ -2023,6 +2700,21 @@ function drawEnemyCoordinates(enemy) {
   context.fill();
 }
 
+function drawBossDebugBounds() {
+  const boss = bossManager.boss;
+  if (!boss) return;
+
+  const left = boss.x - boss.width / 2;
+  const top = boss.y - boss.height / 2;
+  context.fillStyle = "#ff8080";
+  drawDebugText(`Boss hitbox: X=${boss.x.toFixed(1)}, Y=${boss.y.toFixed(1)}`, left, Math.max(18, top - 10));
+  context.strokeStyle = "#ff8080";
+  context.strokeRect(left, top, boss.width, boss.height);
+  context.beginPath();
+  context.arc(boss.x, boss.y, 4, 0, 2 * Math.PI);
+  context.fill();
+}
+
 function updateGameplay(deltaSeconds) {
   updateTank(deltaSeconds);
   enemyManager.update(deltaSeconds);
@@ -2039,11 +2731,16 @@ function updateGameplay(deltaSeconds) {
   explosionManager.update(deltaSeconds);
   enemyDeathVisualManager.update(deltaSeconds);
   laserTankImpactManager.update(deltaSeconds);
+  projectileImpactManager.update(deltaSeconds);
+  groundLaserImpactFlashManager.update(deltaSeconds);
   updateMuzzleFlash(deltaSeconds);
+  updateMuzzleSmoke(deltaSeconds);
 }
 
 function updatePlayerDying(deltaSeconds) {
   explosionManager.update(deltaSeconds);
+  projectileImpactManager.update(deltaSeconds);
+  updateMuzzleSmoke(deltaSeconds);
 }
 
 function updateGame(deltaSeconds) {
@@ -2059,6 +2756,8 @@ function updateGame(deltaSeconds) {
 
   if (gameState.status === GAME_STATES.BOSS_DEFEATED) {
     explosionManager.update(deltaSeconds);
+    projectileImpactManager.update(deltaSeconds);
+    updateMuzzleSmoke(deltaSeconds);
   }
 }
 
@@ -2074,10 +2773,14 @@ function render(currentTime) {
   previousTime = currentTime;
   updateGame(deltaSeconds);
   context.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+  drawTankDust();
   drawProjectiles();
   drawEnemyLasers();
   drawLaserTankImpacts();
+  drawProjectileImpacts();
+  drawGroundLaserImpactFlashes();
   drawHealthDrops();
+  drawMuzzleSmoke();
   drawMuzzleFlash();
   drawEnemyHealthBars();
   drawBossHealthBar();
@@ -2090,6 +2793,7 @@ function render(currentTime) {
     positionSpriteFromCenter(powerUpManager.heavyMachineGun.active.sprite, powerUpManager.heavyMachineGun.active);
   }
   if (debug.enabled && gameState.status !== GAME_STATES.LEVEL_COMPLETE && gameState.status !== GAME_STATES.LEVEL_PREVIEW) drawDebug();
+  updateDebugPresentationPanelVisibility();
   drawScoreHud();
   requestAnimationFrame(render);
 }
@@ -2101,6 +2805,7 @@ window.addEventListener("keydown", (event) => {
 
   if (event.code === "KeyQ" && !event.repeat) {
     debug.enabled = !debug.enabled;
+    if (!debug.enabled) debug.presentationPanelOpen = false;
     return;
   }
 
@@ -2129,5 +2834,27 @@ nextLevelButton.addEventListener("click", goToNextLevelPreview);
 levelCompleteMenuButton.addEventListener("click", returnToMainMenu);
 nextLevelMenuButton.addEventListener("click", returnToMainMenu);
 startGameButton.addEventListener("click", restartCurrentLevel);
+debugPresentationToggle.addEventListener("click", (event) => {
+  event.stopPropagation();
+  setDebugPresentationPanelOpen(!debug.presentationPanelOpen);
+});
+debugLoadStageButton.addEventListener("click", () => {
+  applyDebugPresentationStage(debugStageSelect.value);
+  setDebugPresentationPanelOpen(false);
+});
+debugRestartLevelButton.addEventListener("click", restartCurrentLevelFromDebug);
+
+["pointerdown", "pointerup", "click", "dblclick", "mousedown", "mouseup"].forEach((eventName) => {
+  [debugPresentationToggle, debugPresentationPanel].forEach((element) => {
+    element.addEventListener(eventName, (event) => {
+      event.stopPropagation();
+    });
+  });
+});
+
+debugPresentationPanel.addEventListener("keydown", (event) => {
+  event.stopPropagation();
+  if (event.code === "Space") event.preventDefault();
+});
 
 requestAnimationFrame(render);

@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LaserBlast</title>
+    <link rel="icon" type="image/gif" href="assets/gif/Tanque.gif" />
     <link rel="stylesheet" href="css/styles.css" />
   </head>
   <body>
@@ -12,9 +13,24 @@
         <img class="game-background" src="assets/gif/desert_metal_slug_by_mugengamer1_dg90hj5-pre.jpg" alt="Escenario des&eacute;rtico" />
         <canvas id="game-canvas" width="1200" height="675">Tu navegador no soporta Canvas 2D.</canvas>
         <img id="tank-sprite" class="game-sprite" src="assets/gif/Tanque.gif" alt="Tanque" />
+        <button id="debug-presentation-toggle" class="debug-presentation-toggle" type="button" aria-pressed="false" hidden>PRUEBAS</button>
+        <aside id="debug-presentation-panel" class="debug-presentation-panel" aria-label="Pruebas y presentaci&oacute;n" hidden>
+          <h2>PRUEBAS / PRESENTACI&Oacute;N</h2>
+          <label for="debug-stage-select">STAGE</label>
+          <select id="debug-stage-select">
+            <option value="INICIO">INICIO</option>
+            <option value="NUDO">NUDO</option>
+            <option value="BOSS">BOSS</option>
+          </select>
+          <div class="debug-presentation-actions">
+            <button id="debug-load-stage-button" type="button">CARGAR</button>
+            <button id="debug-restart-level-button" type="button">REINICIAR NIVEL</button>
+          </div>
+        </aside>
         <section id="game-over-overlay" class="game-overlay game-over-overlay" aria-label="Game Over" hidden>
           <div class="overlay-panel game-over-panel">
             <p class="overlay-kicker">MISI&Oacute;N FALLIDA</p>
+            <h2 class="overlay-logo overlay-logo-danger">LASERBLAST</h2>
             <h1>GAME OVER</h1>
             <div class="game-over-stats" aria-live="polite">
               <p id="game-over-score">PUNTOS: 0</p>
@@ -28,7 +44,8 @@
         </section>
         <section id="level-complete-overlay" class="game-overlay level-complete-overlay" aria-label="Nivel superado" hidden>
           <div class="overlay-panel level-complete-panel">
-            <p class="overlay-kicker">OBJETIVO CUMPLIDO</p>
+            <p class="overlay-kicker">LASERBLAST</p>
+            <h2 class="overlay-logo overlay-logo-small">OBJETIVO CUMPLIDO</h2>
             <h1 id="level-complete-title">NIVEL 1 SUPERADO</h1>
             <div class="level-complete-stats" aria-live="polite">
               <p id="level-complete-score">PUNTOS: 0</p>
@@ -42,7 +59,8 @@
         </section>
         <section id="next-level-preview-overlay" class="game-overlay next-level-preview-overlay" aria-label="Siguiente nivel" hidden>
           <div class="overlay-panel next-level-preview-panel">
-            <p class="overlay-kicker">PREPARANDO MISI&Oacute;N</p>
+            <p class="overlay-kicker">LASERBLAST</p>
+            <h2 class="overlay-logo overlay-logo-small">PREPARANDO MISI&Oacute;N</h2>
             <h2 id="next-level-preview-title">NIVEL 2 - PR&Oacute;XIMAMENTE</h2>
             <div class="level-complete-stats" aria-live="polite">
               <p id="next-level-preview-score">PUNTOS: 0</p>
@@ -52,9 +70,10 @@
             <button id="next-level-menu-button" class="arcade-button arcade-button-secondary" type="button">MEN&Uacute; PRINCIPAL</button>
           </div>
         </section>
-        <section id="main-menu-overlay" class="game-overlay main-menu-overlay" aria-label="Men&uacute; principal" hidden>
+        <section id="main-menu-overlay" class="game-overlay main-menu-overlay" aria-label="Men&uacute; principal">
           <div class="overlay-panel main-menu-panel">
-            <p class="overlay-kicker">LASERBLAST</p>
+            <p class="overlay-kicker">OPERACI&Oacute;N TRIGONOM&Eacute;TRICA</p>
+            <h1 class="overlay-logo">LASERBLAST</h1>
             <h2>BASE DE OPERACIONES</h2>
             <button id="start-game-button" class="arcade-button arcade-button-primary" type="button">INICIAR</button>
           </div>
