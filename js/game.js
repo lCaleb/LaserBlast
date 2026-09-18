@@ -7,6 +7,7 @@ const stage = document.querySelector(".game-stage");
 const tankSprite = document.querySelector("#tank-sprite");
 const debugPresentationToggle = document.querySelector("#debug-presentation-toggle");
 const debugPresentationPanel = document.querySelector("#debug-presentation-panel");
+const debugLevelSelect = document.querySelector("#debug-level-select");
 const debugStageSelect = document.querySelector("#debug-stage-select");
 const debugLoadStageButton = document.querySelector("#debug-load-stage-button");
 const debugRestartLevelButton = document.querySelector("#debug-restart-level-button");
@@ -81,6 +82,18 @@ const STAGES = {
   BOSS: "BOSS",
 };
 
+const MUSIC_CONFIG = {
+  [STAGES.INICIO]: {
+    src: "assets/audio/music/inicio.ogg",
+  },
+  [STAGES.NUDO]: {
+    src: "assets/audio/music/nudo.ogg",
+  },
+  [STAGES.BOSS]: {
+    src: "assets/audio/music/boss.ogg",
+  },
+};
+
 const GAME_STATES = {
   MENU: "MENU",
   PLAYING: "PLAYING",
@@ -94,6 +107,7 @@ const GAME_STATES = {
 
 const LEVEL_CONFIG = {
   1: {
+    enabled: true,
     start: {
       stage: STAGES.INICIO,
       tankX: TANK_START_X,
@@ -141,6 +155,11 @@ const LEVEL_CONFIG = {
       attackPattern: {
         sequence: [1, 1, 2],
         doubleSpreadDegrees: 10,
+      },
+      projectileHitbox: {
+        insetX: 24,
+        topOffset: -46,
+        bottomOffset: 18,
       },
       deathExplosion: {
         asset: TANK_DEATH_EXPLOSION_ASSET,
@@ -195,7 +214,114 @@ const LEVEL_CONFIG = {
       },
     },
   },
-  2: { normalEnemy: { hp: 40 } },
+  2: {
+    enabled: false,
+    start: {
+      stage: STAGES.INICIO,
+      tankX: TANK_START_X,
+      tankY: TANK_START_Y,
+      tankHp: TANK_MAX_HP,
+      weaponLevel: 2,
+    },
+    normalEnemy: {
+      hp: 40,
+      lanes: [90, 175, 260],
+      trajectory: {
+        amplitude: 35,
+        period: 900,
+      },
+      laser: {
+        speed: 340,
+        fireInterval: 2.3,
+        damage: 5,
+      },
+    },
+    boss: {
+      asset: "assets/gif/Jefe2.gif",
+      label: "Boss 2",
+      width: 159,
+      height: 120,
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      maxHp: 800,
+      speed: 155,
+      initialDirection: -1,
+      trajectory: {
+        type: "cos",
+        midline: 180,
+        amplitude: 65,
+        period: 800,
+      },
+      laser: {
+        speed: 440,
+        fireInterval: 0.8,
+        damage: 15,
+        length: 58,
+        lineWidth: 7,
+        type: "boss",
+      },
+      attackPattern: {
+        sequence: [1, 1, 2],
+        doubleSpreadDegrees: 10,
+      },
+      projectileHitbox: {
+        insetX: 14,
+        topOffset: -38,
+        bottomOffset: 20,
+      },
+      deathExplosion: {
+        asset: TANK_DEATH_EXPLOSION_ASSET,
+        duration: TANK_DEATH_EXPLOSION_DURATION,
+        width: 300,
+        height: 372,
+      },
+    },
+    powerUps: {
+      heavyMachineGun: {
+        asset: "assets/gif/Heavy Machine Gun.webp",
+        normalKillTrigger: 20,
+        weaponLevel: 3,
+        width: 42,
+        height: 42,
+        spawnX: 600,
+        spawnY: 80,
+        fallSpeed: 140,
+        groundAvailableTime: 8,
+      },
+    },
+    drops: {
+      health: {
+        dropChance: 0.3,
+        healAmount: 25,
+        width: 42,
+        height: 42,
+        fallSpeed: 125,
+        groundAvailableTime: 7,
+        pulseScale: 0.14,
+        pulseSpeed: 5.5,
+      },
+    },
+    stages: {
+      [STAGES.INICIO]: {
+        maxNormalEnemies: 4,
+        spawnInterval: 2.2,
+        normalKillTarget: 12,
+        spawnsNormalEnemies: true,
+      },
+      [STAGES.NUDO]: {
+        maxNormalEnemies: 5,
+        spawnInterval: 1.7,
+        normalKillTarget: 30,
+        spawnsNormalEnemies: true,
+      },
+      [STAGES.BOSS]: {
+        maxNormalEnemies: 0,
+        spawnInterval: null,
+        normalKillTarget: null,
+        spawnsNormalEnemies: false,
+      },
+    },
+  },
   3: { normalEnemy: { hp: 50 } },
   4: { normalEnemy: { hp: 60 } },
   5: { normalEnemy: { hp: 70 } },
@@ -211,6 +337,13 @@ const DEBUG_PRESENTATION_CONFIG = {
       [STAGES.INICIO]: 1,
       [STAGES.NUDO]: 1,
       [STAGES.BOSS]: 2,
+    },
+  },
+  2: {
+    weaponLevelByStage: {
+      [STAGES.INICIO]: 2,
+      [STAGES.NUDO]: 2,
+      [STAGES.BOSS]: 3,
     },
   },
 };
@@ -242,6 +375,75 @@ const tank = {
   alive: true,
   visible: true,
 };
+
+const musicManager = {
+  audio: new Audio(),
+  currentStage: null,
+
+  setup() {
+    this.audio.loop = true;
+    this.audio.preload = "auto";
+  },
+
+  playStage(stageName, options = {}) {
+    const musicConfig = MUSIC_CONFIG[stageName];
+    if (!musicConfig) {
+      this.stop();
+      return;
+    }
+
+    const shouldSwitchTrack = this.currentStage !== stageName;
+
+    if (shouldSwitchTrack) {
+      this.audio.pause();
+      this.audio.src = musicConfig.src;
+      this.audio.loop = true;
+      this.audio.preload = "auto";
+      this.currentStage = stageName;
+      this.seekStart();
+    } else if (options.restart && this.audio.paused) {
+      this.seekStart();
+    }
+
+    this.tryPlay();
+  },
+
+  pause() {
+    this.audio.pause();
+  },
+
+  resume() {
+    if (!this.currentStage) {
+      this.playStage(gameState.stage);
+      return;
+    }
+
+    this.tryPlay();
+  },
+
+  stop() {
+    this.audio.pause();
+    this.seekStart();
+    this.currentStage = null;
+  },
+
+  seekStart() {
+    try {
+      this.audio.currentTime = 0;
+    } catch (error) {
+      // Algunas pistas aun pueden no estar listas para seekear justo al cambiar src.
+    }
+  },
+
+  tryPlay() {
+    const playPromise = this.audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+  },
+};
+
+musicManager.setup();
 
 const weapon = {
   level: STARTING_WEAPON_LEVEL,
@@ -1064,6 +1266,7 @@ const bossManager = {
       deathProcessed: false,
       laserCooldown: config.laser.fireInterval * 0.55,
       trajectory: { ...config.trajectory },
+      projectileHitbox: { ...config.projectileHitbox },
     };
 
     boss.y = calculateTrajectoryY(boss, boss.x);
@@ -1077,6 +1280,7 @@ const bossManager = {
     this.defeated = false;
     this.lastShot = null;
     this.attackCounter = 0;
+    musicManager.playStage(STAGES.BOSS);
   },
 
   update(deltaSeconds) {
@@ -1197,6 +1401,11 @@ function getCurrentEnemyHp() {
 
 function getCurrentLevelConfig() {
   return LEVEL_CONFIG[currentLevel];
+}
+
+function isPlayableLevelConfigured(level) {
+  const config = LEVEL_CONFIG[level];
+  return Boolean(config?.enabled && config?.start && config?.normalEnemy && config?.boss && config?.stages);
 }
 
 function getCurrentLevelStartConfig() {
@@ -1330,6 +1539,7 @@ function showGameOver() {
   gameOverScore.textContent = `PUNTOS: ${gameState.score}`;
   gameOverLevel.textContent = `NIVEL ${currentLevel}`;
   gameOverOverlay.hidden = false;
+  musicManager.stop();
 }
 
 function hideGameOver() {
@@ -1348,6 +1558,7 @@ function showLevelComplete() {
   levelCompleteScore.textContent = `PUNTOS: ${gameState.score}`;
   levelCompleteHp.textContent = `VIDA RESTANTE: ${tank.hp}/${tank.maxHp}`;
   levelCompleteOverlay.hidden = false;
+  musicManager.stop();
 }
 
 function hideLevelComplete() {
@@ -1436,6 +1647,7 @@ function pauseGame() {
 
   clearInputState();
   gameState.status = GAME_STATES.PAUSED;
+  musicManager.pause();
   showPauseMenu();
 }
 
@@ -1444,6 +1656,7 @@ function resumeGame() {
 
   hidePauseMenu();
   gameState.status = GAME_STATES.PLAYING;
+  musicManager.resume();
 }
 
 function togglePause() {
@@ -1455,10 +1668,10 @@ function togglePause() {
   pauseGame();
 }
 
-function resetCurrentLevelState() {
+function resetCurrentLevelState({ resetScore = true } = {}) {
   const startConfig = getCurrentLevelStartConfig();
 
-  gameState.score = 0;
+  if (resetScore) gameState.score = 0;
   gameState.normalEnemiesDestroyed = 0;
   gameState.stage = startConfig.stage;
   gameState.status = GAME_STATES.PLAYING;
@@ -1479,6 +1692,7 @@ function restartCurrentLevel() {
   debug.presentationModeActive = false;
   resetCurrentLevelState();
   hideAllOverlays();
+  musicManager.playStage(gameState.stage, { restart: true });
 }
 
 function returnToMainMenu() {
@@ -1489,6 +1703,7 @@ function returnToMainMenu() {
   gameState.status = GAME_STATES.MENU;
   hideAllOverlays();
   showMainMenu();
+  musicManager.stop();
 }
 
 function goToNextLevelPreview() {
@@ -1507,10 +1722,28 @@ function goToNextLevelPreview() {
   showNextLevelPreview();
 }
 
-function getDebugPresentationStageConfig(stageName) {
-  const level = 1;
+function startNextLevel() {
+  if (gameState.status !== GAME_STATES.LEVEL_COMPLETE) return;
+
+  const nextLevel = currentLevel + 1;
+  if (!isPlayableLevelConfigured(nextLevel)) {
+    goToNextLevelPreview();
+    return;
+  }
+
+  cleanupCompletedLevel();
+  currentLevel = nextLevel;
+  debug.presentationModeActive = false;
+  resetCurrentLevelState({ resetScore: false });
+  hideAllOverlays();
+  musicManager.playStage(gameState.stage, { restart: true });
+}
+
+function getDebugPresentationStageConfig(stageName, level = currentLevel) {
+  const configuredLevel = isPlayableLevelConfigured(level) ? level : 1;
+  level = configuredLevel;
   const levelConfig = LEVEL_CONFIG[level];
-  const debugConfig = DEBUG_PRESENTATION_CONFIG[level];
+  const debugConfig = DEBUG_PRESENTATION_CONFIG[level] ?? {};
   const inicioTarget = levelConfig.stages[STAGES.INICIO].normalKillTarget;
   const nudoTarget = levelConfig.stages[STAGES.NUDO].normalKillTarget;
   const killsByStage = {
@@ -1525,13 +1758,14 @@ function getDebugPresentationStageConfig(stageName) {
     stage: stageName,
     normalEnemiesDestroyed,
     score: normalEnemiesDestroyed * SCORE_CONFIG.normalEnemyDestroyed,
-    weaponLevel: debugConfig.weaponLevelByStage[stageName] ?? levelConfig.start.weaponLevel,
+    weaponLevel: debugConfig.weaponLevelByStage?.[stageName] ?? levelConfig.start.weaponLevel,
     tankHp: levelConfig.start.tankHp,
   };
 }
 
 function applyDebugPresentationStage(stageName) {
-  const config = getDebugPresentationStageConfig(stageName);
+  const level = Number(debugLevelSelect.value) || currentLevel;
+  const config = getDebugPresentationStageConfig(stageName, level);
 
   cleanupForDebugPresentation();
   debug.presentationModeActive = true;
@@ -1556,6 +1790,7 @@ function applyDebugPresentationStage(stageName) {
     bossManager.tryCreateBoss();
   }
 
+  musicManager.playStage(gameState.stage, { restart: true });
   updateDebugPresentationPanelVisibility();
 }
 
@@ -1576,12 +1811,14 @@ function restartCurrentLevelFromDebug() {
 function setDebugPresentationPanelOpen(isOpen) {
   debug.presentationPanelOpen = isOpen;
   if (isOpen) {
+    debugLevelSelect.value = String(isPlayableLevelConfigured(currentLevel) ? currentLevel : 1);
     debugStageSelect.value = Object.values(STAGES).includes(gameState.stage) ? gameState.stage : STAGES.INICIO;
   }
   updateDebugPresentationPanelVisibility();
 }
 
 function showDebugTerminalControls() {
+  musicManager.pause();
   debug.enabled = true;
   hideAllOverlays();
   setDebugPresentationPanelOpen(true);
@@ -1792,11 +2029,32 @@ function enterStage(stageName) {
 
   if (stageName === STAGES.BOSS) {
     bossManager.tryCreateBoss();
+    return;
   }
+
+  musicManager.playStage(gameState.stage, { restart: true });
 }
 
 function isProjectileCollidingWithEnemy(projectile, enemy) {
   return Boolean(getProjectileEnemyOverlap(projectile, enemy));
+}
+
+function getProjectileTargetBounds(target) {
+  if (target.projectileHitbox) {
+    return {
+      left: target.x - target.width / 2 + target.projectileHitbox.insetX,
+      right: target.x + target.width / 2 - target.projectileHitbox.insetX,
+      top: target.y + target.projectileHitbox.topOffset,
+      bottom: target.y + target.projectileHitbox.bottomOffset,
+    };
+  }
+
+  return {
+    left: target.x - target.width / 2,
+    right: target.x + target.width / 2,
+    top: target.y - target.height / 2,
+    bottom: target.y + target.height / 2,
+  };
 }
 
 function getProjectileEnemyOverlap(projectile, enemy) {
@@ -1804,15 +2062,12 @@ function getProjectileEnemyOverlap(projectile, enemy) {
   const projectileRight = projectile.x + projectile.width / 2;
   const projectileTop = projectile.y;
   const projectileBottom = projectile.y + projectile.height;
-  const enemyLeft = enemy.x - enemy.width / 2;
-  const enemyRight = enemy.x + enemy.width / 2;
-  const enemyTop = enemy.y - enemy.height / 2;
-  const enemyBottom = enemy.y + enemy.height / 2;
+  const targetBounds = getProjectileTargetBounds(enemy);
 
-  const left = Math.max(projectileLeft, enemyLeft);
-  const right = Math.min(projectileRight, enemyRight);
-  const top = Math.max(projectileTop, enemyTop);
-  const bottom = Math.min(projectileBottom, enemyBottom);
+  const left = Math.max(projectileLeft, targetBounds.left);
+  const right = Math.min(projectileRight, targetBounds.right);
+  const top = Math.max(projectileTop, targetBounds.top);
+  const bottom = Math.min(projectileBottom, targetBounds.bottom);
 
   if (right < left || bottom < top) return null;
 
@@ -1821,7 +2076,7 @@ function getProjectileEnemyOverlap(projectile, enemy) {
     right,
     top,
     bottom,
-    enemyBottom,
+    targetBottom: targetBounds.bottom,
   };
 }
 
@@ -1831,7 +2086,7 @@ function getProjectileEnemyImpactPoint(projectile, enemy) {
 
   return {
     x: (overlap.left + overlap.right) / 2,
-    y: overlap.enemyBottom,
+    y: overlap.targetBottom,
   };
 }
 
@@ -2019,10 +2274,12 @@ function getActiveTrajectoryConfigs() {
   });
 
   if (gameState.stage === STAGES.BOSS && (bossManager.boss || bossManager.created)) {
+    const bossConfig = getCurrentBossConfig();
+    const bossTrajectory = bossManager.boss?.trajectory ?? bossConfig.trajectory;
     configs.set("boss-1", {
       color: "#55ff7a",
-      label: "Boss 1 seno",
-      trajectory: bossManager.boss?.trajectory ?? getCurrentBossConfig().trajectory,
+      label: `${bossConfig.label} ${bossTrajectory.type}`,
+      trajectory: bossTrajectory,
     });
   }
 
@@ -2745,10 +3002,18 @@ function drawBossDebugBounds() {
 
   const left = boss.x - boss.width / 2;
   const top = boss.y - boss.height / 2;
+  const projectileBounds = getProjectileTargetBounds(boss);
   context.fillStyle = "#ff8080";
   drawDebugText(`Boss hitbox: X=${boss.x.toFixed(1)}, Y=${boss.y.toFixed(1)}`, left, Math.max(18, top - 10));
   context.strokeStyle = "#ff8080";
   context.strokeRect(left, top, boss.width, boss.height);
+  context.strokeStyle = "#ffe066";
+  context.strokeRect(
+    projectileBounds.left,
+    projectileBounds.top,
+    projectileBounds.right - projectileBounds.left,
+    projectileBounds.bottom - projectileBounds.top,
+  );
   context.beginPath();
   context.arc(boss.x, boss.y, 4, 0, 2 * Math.PI);
   context.fill();
@@ -2877,7 +3142,7 @@ mainMenuButton.addEventListener("click", returnToMainMenu);
 continueButton.addEventListener("click", resumeGame);
 pauseRestartButton.addEventListener("click", restartCurrentLevel);
 pauseMenuButton.addEventListener("click", returnToMainMenu);
-nextLevelButton.addEventListener("click", goToNextLevelPreview);
+nextLevelButton.addEventListener("click", startNextLevel);
 levelCompleteMenuButton.addEventListener("click", returnToMainMenu);
 nextLevelMenuButton.addEventListener("click", returnToMainMenu);
 startGameButton.addEventListener("click", restartCurrentLevel);
