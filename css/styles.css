@@ -47,11 +47,14 @@ body {
 }
 
 .game-background {
+  z-index: 0;
   object-fit: cover;
 }
 
 #game-canvas {
+  z-index: 3;
   image-rendering: auto;
+  pointer-events: none;
 }
 
 .game-sprite {
