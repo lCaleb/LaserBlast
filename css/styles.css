@@ -63,3 +63,144 @@ body {
   display: block;
   pointer-events: none;
 }
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 56px);
+  background:
+    radial-gradient(circle at center, rgba(21, 38, 21, 0.48), rgba(2, 5, 10, 0.88)),
+    rgba(0, 0, 0, 0.58);
+  pointer-events: auto;
+}
+
+.game-overlay[hidden] {
+  display: none;
+}
+
+.overlay-panel {
+  width: min(620px, 92%);
+  padding: clamp(26px, 4vw, 46px);
+  text-align: center;
+  color: #f7ffe6;
+  border: 3px solid rgba(181, 255, 105, 0.75);
+  background:
+    linear-gradient(180deg, rgba(43, 62, 27, 0.92), rgba(8, 12, 9, 0.96)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 8px, transparent 8px 16px);
+  box-shadow:
+    0 0 0 5px rgba(0, 0, 0, 0.55),
+    0 0 32px rgba(130, 255, 93, 0.3),
+    inset 0 0 28px rgba(0, 0, 0, 0.58);
+}
+
+.overlay-kicker {
+  margin: 0 0 8px;
+  color: #f6d36a;
+  font-size: clamp(14px, 1.7vw, 21px);
+  letter-spacing: 0.24em;
+  text-shadow: 0 2px 0 #000;
+}
+
+.game-over-panel h1,
+.level-complete-panel h1,
+.main-menu-panel h2,
+.next-level-preview-panel h2 {
+  margin: 0;
+  color: #ffefe1;
+  font-size: clamp(52px, 8vw, 112px);
+  line-height: 0.95;
+  letter-spacing: 0.08em;
+  text-shadow:
+    0 4px 0 #5a150e,
+    0 0 18px rgba(255, 74, 38, 0.8),
+    0 0 38px rgba(255, 195, 67, 0.48);
+}
+
+.level-complete-panel h1 {
+  color: #eaffc5;
+  font-size: clamp(42px, 6.8vw, 86px);
+  text-shadow:
+    0 4px 0 #26380c,
+    0 0 18px rgba(168, 255, 85, 0.82),
+    0 0 38px rgba(255, 218, 67, 0.42);
+}
+
+.main-menu-panel h2,
+.next-level-preview-panel h2 {
+  font-size: clamp(34px, 5vw, 68px);
+}
+
+.game-over-stats,
+.level-complete-stats {
+  display: grid;
+  gap: 4px;
+  margin: clamp(20px, 3vw, 34px) 0;
+  color: #fff6a6;
+  font-size: clamp(22px, 3vw, 36px);
+  text-shadow: 0 3px 0 #000;
+}
+
+.game-over-stats p,
+.level-complete-stats p {
+  margin: 0;
+}
+
+.overlay-actions {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+}
+
+.arcade-button {
+  min-width: min(360px, 100%);
+  padding: 16px 28px;
+  color: #f8ffe8;
+  font: 700 clamp(18px, 2.2vw, 28px) Consolas, "Courier New", monospace;
+  letter-spacing: 0.08em;
+  border: 3px solid rgba(236, 255, 187, 0.86);
+  background: linear-gradient(180deg, #4d5e2b, #1f2d16);
+  box-shadow:
+    0 7px 0 #050805,
+    0 0 18px rgba(161, 255, 99, 0.24),
+    inset 0 0 18px rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+
+.arcade-button-primary {
+  min-width: min(430px, 100%);
+  color: #1b1204;
+  border-color: #fff0a0;
+  background: linear-gradient(180deg, #ffd45a, #d6771f);
+  box-shadow:
+    0 8px 0 #4b2508,
+    0 0 26px rgba(255, 176, 43, 0.62),
+    inset 0 0 18px rgba(255, 255, 255, 0.28);
+}
+
+.arcade-button-secondary {
+  opacity: 0.92;
+}
+
+.arcade-button:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.14);
+}
+
+.arcade-button:active {
+  transform: translateY(5px);
+  box-shadow:
+    0 2px 0 #050805,
+    0 0 12px rgba(161, 255, 99, 0.18),
+    inset 0 0 18px rgba(0, 0, 0, 0.28);
+}
+
+.arcade-button-primary:active {
+  box-shadow:
+    0 2px 0 #4b2508,
+    0 0 14px rgba(255, 176, 43, 0.4),
+    inset 0 0 18px rgba(0, 0, 0, 0.22);
+}

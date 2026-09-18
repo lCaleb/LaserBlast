@@ -5,18 +5,54 @@ const canvas = document.querySelector("#game-canvas");
 const context = canvas.getContext("2d");
 const stage = document.querySelector(".game-stage");
 const tankSprite = document.querySelector("#tank-sprite");
+const gameOverOverlay = document.querySelector("#game-over-overlay");
+const gameOverScore = document.querySelector("#game-over-score");
+const gameOverLevel = document.querySelector("#game-over-level");
+const retryButton = document.querySelector("#retry-button");
+const mainMenuButton = document.querySelector("#main-menu-button");
+const levelCompleteOverlay = document.querySelector("#level-complete-overlay");
+const levelCompleteTitle = document.querySelector("#level-complete-title");
+const levelCompleteScore = document.querySelector("#level-complete-score");
+const levelCompleteHp = document.querySelector("#level-complete-hp");
+const nextLevelButton = document.querySelector("#next-level-button");
+const levelCompleteMenuButton = document.querySelector("#level-complete-menu-button");
+const nextLevelPreviewOverlay = document.querySelector("#next-level-preview-overlay");
+const nextLevelPreviewTitle = document.querySelector("#next-level-preview-title");
+const nextLevelPreviewScore = document.querySelector("#next-level-preview-score");
+const nextLevelPreviewHp = document.querySelector("#next-level-preview-hp");
+const nextLevelPreviewWeapon = document.querySelector("#next-level-preview-weapon");
+const nextLevelMenuButton = document.querySelector("#next-level-menu-button");
+const mainMenuOverlay = document.querySelector("#main-menu-overlay");
+const startGameButton = document.querySelector("#start-game-button");
 
 const ENEMY_SPEED = 180;
 const TANK_SPEED = 260;
 const PROJECTILE_SPEED = 520;
+const TANK_START_X = 95;
+const TANK_START_Y = 550;
+const TANK_WIDTH = 165;
+const TANK_HEIGHT = 82;
+const TANK_MAX_HP = 100;
+const STARTING_WEAPON_LEVEL = 1;
 const PROJECTILE_FIRE_INTERVAL = 0.09;
 const MUZZLE_FLASH_DURATION = 0.055;
 const ENEMY_LASER_LENGTH = 34;
 const ENEMY_LASER_LINE_WIDTH = 3;
+const LASER_TANK_IMPACT_DURATION = 0.16;
+const LASER_TANK_IMPACT_RADIUS = 14;
 const EXPLOSION_ASSET = "assets/gif/exploci\u00f3n3.gif";
 const EXPLOSION_DURATION = 0.75;
 const EXPLOSION_WIDTH = 80;
 const EXPLOSION_HEIGHT = 119;
+const GROUND_EXPLOSION_ASSET = "assets/gif/exploci\u00f3n2.gif";
+const GROUND_EXPLOSION_DURATION = 1.46;
+const GROUND_EXPLOSION_WIDTH = 67;
+const GROUND_EXPLOSION_HEIGHT = 171;
+const TANK_DEATH_EXPLOSION_ASSET = "assets/gif/explosion.gif";
+const TANK_DEATH_EXPLOSION_DURATION = 1.7;
+const TANK_DEATH_EXPLOSION_WIDTH = 187;
+const TANK_DEATH_EXPLOSION_HEIGHT = 232;
+const TANK_DEATH_EXPLOSION_VISUAL_BOTTOM = 216;
 const ENEMY_DEATH_VISUAL_DELAY = 0.5;
 
 const STAGES = {
@@ -25,8 +61,25 @@ const STAGES = {
   BOSS: "BOSS",
 };
 
+const GAME_STATES = {
+  MENU: "MENU",
+  PLAYING: "PLAYING",
+  PLAYER_DYING: "PLAYER_DYING",
+  BOSS_DEFEATED: "BOSS_DEFEATED",
+  LEVEL_COMPLETE: "LEVEL_COMPLETE",
+  LEVEL_PREVIEW: "LEVEL_PREVIEW",
+  GAME_OVER: "GAME_OVER",
+};
+
 const LEVEL_CONFIG = {
   1: {
+    start: {
+      stage: STAGES.INICIO,
+      tankX: TANK_START_X,
+      tankY: TANK_START_Y,
+      tankHp: TANK_MAX_HP,
+      weaponLevel: STARTING_WEAPON_LEVEL,
+    },
     normalEnemy: {
       hp: 30,
       lanes: [100, 190, 280],
@@ -37,6 +90,38 @@ const LEVEL_CONFIG = {
       laser: {
         speed: 320,
         fireInterval: 2.6,
+        damage: 5,
+      },
+    },
+    boss: {
+      asset: "assets/gif/jefe1.gif",
+      label: "Boss 1",
+      width: 301,
+      height: 123,
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      maxHp: 300,
+      speed: 145,
+      initialDirection: -1,
+      trajectory: {
+        type: "sin",
+        midline: 180,
+        amplitude: 70,
+        period: 1000,
+      },
+      laser: {
+        speed: 420,
+        fireInterval: 0.95,
+        damage: 15,
+        length: 58,
+        lineWidth: 7,
+        type: "boss",
+      },
+      deathExplosion: {
+        asset: TANK_DEATH_EXPLOSION_ASSET,
+        duration: TANK_DEATH_EXPLOSION_DURATION,
+        width: 380,
+        height: 470,
       },
     },
     powerUps: {
@@ -50,6 +135,18 @@ const LEVEL_CONFIG = {
         spawnY: 80,
         fallSpeed: 140,
         groundAvailableTime: 8,
+      },
+    },
+    drops: {
+      health: {
+        dropChance: 0.2,
+        healAmount: 25,
+        width: 42,
+        height: 42,
+        fallSpeed: 125,
+        groundAvailableTime: 7,
+        pulseScale: 0.14,
+        pulseSpeed: 5.5,
       },
     },
     stages: {
@@ -86,6 +183,7 @@ const SCORE_CONFIG = {
 let currentLevel = 1;
 
 const gameState = {
+  status: GAME_STATES.PLAYING,
   score: 0,
   stage: STAGES.INICIO,
   normalEnemiesDestroyed: 0,
@@ -98,14 +196,18 @@ const debug = {
 };
 
 const tank = {
-  x: 95,
-  y: 550,
-  width: 165,
-  height: 82,
+  x: TANK_START_X,
+  y: TANK_START_Y,
+  width: TANK_WIDTH,
+  height: TANK_HEIGHT,
+  maxHp: TANK_MAX_HP,
+  hp: TANK_MAX_HP,
+  alive: true,
+  visible: true,
 };
 
 const weapon = {
-  level: 1,
+  level: STARTING_WEAPON_LEVEL,
   projectileDamage: 20,
   muzzlePoints: [
     { id: 1, offsetX: -8, offsetY: -50 },
@@ -162,6 +264,12 @@ const projectileManager = {
   removeExitedProjectiles() {
     this.projectiles = this.projectiles.filter((projectile) => projectile.y + projectile.height > 0);
   },
+
+  clear() {
+    this.projectiles = [];
+    this.nextId = 1;
+    this.fireCooldown = 0;
+  },
 };
 
 const enemyLaserManager = {
@@ -175,7 +283,7 @@ const enemyLaserManager = {
       laser.x += laser.vx * deltaSeconds;
       laser.y += laser.vy * deltaSeconds;
     });
-    this.removeExitedLasers();
+    this.resolveLasers();
   },
 
   updateEnemyFire(enemy, deltaSeconds) {
@@ -188,30 +296,66 @@ const enemyLaserManager = {
     enemy.laserCooldown += laserConfig.fireInterval;
   },
 
-  createLaser(enemy, laserConfig) {
+  createLaser(source, laserConfig, options = {}) {
     const tankCenter = getTankCenter();
-    const dx = tankCenter.x - enemy.x;
-    const dy = tankCenter.y - enemy.y;
+    const originX = options.originX ?? source.x;
+    const originY = options.originY ?? source.y;
+    const dx = tankCenter.x - originX;
+    const dy = tankCenter.y - originY;
     const theta = Math.atan2(dy, dx);
     const vx = laserConfig.speed * Math.cos(theta);
     const vy = laserConfig.speed * Math.sin(theta);
     const laser = {
       id: this.nextId,
-      x: enemy.x,
-      y: enemy.y,
+      x: originX,
+      y: originY,
       theta,
       vx,
       vy,
-      length: ENEMY_LASER_LENGTH,
+      damage: laserConfig.damage,
+      length: laserConfig.length ?? ENEMY_LASER_LENGTH,
+      lineWidth: laserConfig.lineWidth ?? ENEMY_LASER_LINE_WIDTH,
+      type: laserConfig.type ?? "normal",
     };
 
     this.lasers.push(laser);
-    this.lastShot = { theta, vx, vy };
+    this.lastShot = { theta, vx, vy, type: laser.type };
+    if (options.onShot) options.onShot({ theta, vx, vy });
     this.nextId += 1;
   },
 
-  removeExitedLasers() {
-    this.lasers = this.lasers.filter((laser) => !hasLaserExited(laser));
+  resolveLasers() {
+    for (let index = this.lasers.length - 1; index >= 0; index -= 1) {
+      const laser = this.lasers[index];
+      const tankImpact = getLaserTankImpactPoint(laser);
+
+      if (tankImpact) {
+        damageTank(laser.damage);
+        if (isGameplayActive()) {
+          laserTankImpactManager.createImpact(tankImpact.x, tankImpact.y);
+        }
+        this.lasers.splice(index, 1);
+        if (!isGameplayActive()) return;
+        continue;
+      }
+
+      const groundImpact = getLaserGroundImpactPoint(laser);
+      if (groundImpact) {
+        explosionManager.createExplosion(groundImpact.x, debug.groundY, getGroundExplosionConfig());
+        this.lasers.splice(index, 1);
+        continue;
+      }
+
+      if (hasLaserExited(laser)) {
+        this.lasers.splice(index, 1);
+      }
+    }
+  },
+
+  clear() {
+    this.lasers = [];
+    this.nextId = 1;
+    this.lastShot = null;
   },
 };
 
@@ -219,20 +363,23 @@ const explosionManager = {
   explosions: [],
   nextId: 1,
 
-  createExplosion(x, y) {
+  createExplosion(x, y, config = getEnemyExplosionConfig()) {
     const sprite = document.createElement("img");
     const explosion = {
       id: this.nextId,
       sprite,
       x,
       y,
-      width: EXPLOSION_WIDTH,
-      height: EXPLOSION_HEIGHT,
-      remainingTime: EXPLOSION_DURATION,
+      width: config.width,
+      height: config.height,
+      offsetX: config.offsetX,
+      offsetY: config.offsetY,
+      remainingTime: config.duration,
+      onComplete: config.onComplete,
     };
 
     sprite.className = "game-sprite";
-    sprite.src = EXPLOSION_ASSET;
+    sprite.src = config.asset;
     sprite.alt = "Explosion";
     stage.appendChild(sprite);
 
@@ -246,9 +393,97 @@ const explosionManager = {
       explosion.remainingTime -= deltaSeconds;
       if (explosion.remainingTime > 0) continue;
 
+      const onComplete = explosion.onComplete;
       explosion.sprite.remove();
       this.explosions.splice(index, 1);
+      if (onComplete) onComplete();
     }
+  },
+
+  clear() {
+    this.explosions.forEach((explosion) => {
+      explosion.sprite.remove();
+    });
+    this.explosions = [];
+    this.nextId = 1;
+  },
+};
+
+function getEnemyExplosionConfig() {
+  return {
+    asset: EXPLOSION_ASSET,
+    duration: EXPLOSION_DURATION,
+    width: EXPLOSION_WIDTH,
+    height: EXPLOSION_HEIGHT,
+    offsetX: -EXPLOSION_WIDTH / 2,
+    offsetY: -EXPLOSION_HEIGHT / 2,
+  };
+}
+
+function getGroundExplosionConfig() {
+  return {
+    asset: GROUND_EXPLOSION_ASSET,
+    duration: GROUND_EXPLOSION_DURATION,
+    width: GROUND_EXPLOSION_WIDTH,
+    height: GROUND_EXPLOSION_HEIGHT,
+    offsetX: -GROUND_EXPLOSION_WIDTH / 2,
+    offsetY: -170,
+  };
+}
+
+function getTankDeathExplosionConfig(onComplete) {
+  return {
+    asset: TANK_DEATH_EXPLOSION_ASSET,
+    duration: TANK_DEATH_EXPLOSION_DURATION,
+    width: TANK_DEATH_EXPLOSION_WIDTH,
+    height: TANK_DEATH_EXPLOSION_HEIGHT,
+    offsetX: -TANK_DEATH_EXPLOSION_WIDTH / 2,
+    offsetY: tank.height / 2 - TANK_DEATH_EXPLOSION_VISUAL_BOTTOM,
+    onComplete,
+  };
+}
+
+function getBossDeathExplosionConfig(onComplete) {
+  const config = getCurrentBossConfig().deathExplosion;
+  return {
+    asset: config.asset,
+    duration: config.duration,
+    width: config.width,
+    height: config.height,
+    offsetX: -config.width / 2,
+    offsetY: -config.height / 2,
+    onComplete,
+  };
+}
+
+const laserTankImpactManager = {
+  impacts: [],
+  nextId: 1,
+
+  createImpact(x, y) {
+    this.impacts.push({
+      id: this.nextId,
+      x,
+      y,
+      duration: LASER_TANK_IMPACT_DURATION,
+      remainingTime: LASER_TANK_IMPACT_DURATION,
+    });
+    this.nextId += 1;
+  },
+
+  update(deltaSeconds) {
+    for (let index = this.impacts.length - 1; index >= 0; index -= 1) {
+      const impact = this.impacts[index];
+      impact.remainingTime -= deltaSeconds;
+      if (impact.remainingTime > 0) continue;
+
+      this.impacts.splice(index, 1);
+    }
+  },
+
+  clear() {
+    this.impacts = [];
+    this.nextId = 1;
   },
 };
 
@@ -275,6 +510,13 @@ const enemyDeathVisualManager = {
       visual.sprite.remove();
       this.visuals.splice(index, 1);
     }
+  },
+
+  clear() {
+    this.visuals.forEach((visual) => {
+      visual.sprite.remove();
+    });
+    this.visuals = [];
   },
 };
 
@@ -359,6 +601,78 @@ const powerUpManager = {
 
     powerUp.sprite.remove();
     this.heavyMachineGun.active = null;
+  },
+
+  clear() {
+    this.removeHeavyMachineGun();
+    this.heavyMachineGun.generated = false;
+    this.heavyMachineGun.collected = false;
+  },
+};
+
+const healthDropManager = {
+  drops: [],
+  nextId: 1,
+
+  tryCreateFromEnemyDeath(enemy) {
+    const config = getCurrentHealthDropConfig();
+    if (!config) return;
+    if (Math.random() >= config.dropChance) return;
+
+    this.createDrop(enemy.x, enemy.y, config);
+  },
+
+  createDrop(x, y, config) {
+    this.drops.push({
+      id: this.nextId,
+      x,
+      y,
+      width: config.width,
+      height: config.height,
+      fallSpeed: config.fallSpeed,
+      groundAvailableTime: config.groundAvailableTime,
+      pulseScale: config.pulseScale,
+      pulseSpeed: config.pulseSpeed,
+      pulseTime: 0,
+      grounded: false,
+    });
+    this.nextId += 1;
+  },
+
+  update(deltaSeconds) {
+    for (let index = this.drops.length - 1; index >= 0; index -= 1) {
+      const drop = this.drops[index];
+      drop.pulseTime += deltaSeconds;
+
+      if (!drop.grounded) {
+        drop.y += drop.fallSpeed * deltaSeconds;
+        const groundY = debug.groundY - drop.height / 2;
+        if (drop.y >= groundY) {
+          drop.y = groundY;
+          drop.grounded = true;
+        }
+      } else {
+        drop.groundAvailableTime -= deltaSeconds;
+        if (drop.groundAvailableTime <= 0) {
+          this.removeDropAt(index);
+          continue;
+        }
+      }
+
+      if (isHealthDropCollidingWithTank(drop)) {
+        healTank(getCurrentHealthDropConfig().healAmount);
+        this.removeDropAt(index);
+      }
+    }
+  },
+
+  removeDropAt(index) {
+    this.drops.splice(index, 1);
+  },
+
+  clear() {
+    this.drops = [];
+    this.nextId = 1;
   },
 };
 
@@ -510,11 +824,127 @@ const enemyManager = {
     });
     this.enemies = [];
   },
+
+  reset() {
+    this.clearNormalEnemies();
+    this.nextId = 1;
+    this.nextLaneIndex = 0;
+    this.nextVariantIndex = 0;
+    this.spawnTimer = 0;
+  },
+};
+
+const bossManager = {
+  boss: null,
+  created: false,
+  defeated: false,
+  lastShot: null,
+
+  tryCreateBoss() {
+    if (this.created || this.defeated) return;
+    if (gameState.stage !== STAGES.BOSS) return;
+
+    const config = getCurrentBossConfig();
+    const sprite = document.createElement("img");
+    const boss = {
+      id: 1,
+      label: config.label,
+      sprite,
+      x: getBossSpawnX(config),
+      y: 0,
+      width: config.width,
+      height: config.height,
+      offsetX: -config.width / 2 + config.visualOffsetX,
+      offsetY: -config.height / 2 + config.visualOffsetY,
+      speed: config.speed,
+      direction: config.initialDirection,
+      maxHp: config.maxHp,
+      hp: config.maxHp,
+      hasEnteredCombat: false,
+      deathProcessed: false,
+      laserCooldown: config.laser.fireInterval * 0.55,
+      trajectory: { ...config.trajectory },
+    };
+
+    boss.y = calculateTrajectoryY(boss, boss.x);
+    sprite.className = "game-sprite";
+    sprite.src = config.asset;
+    sprite.alt = config.label;
+    stage.appendChild(sprite);
+
+    this.boss = boss;
+    this.created = true;
+    this.defeated = false;
+    this.lastShot = null;
+  },
+
+  update(deltaSeconds) {
+    this.tryCreateBoss();
+    const boss = this.boss;
+    if (!boss || this.defeated) return;
+
+    updateBoss(boss, deltaSeconds);
+    this.updateBossFire(boss, deltaSeconds);
+  },
+
+  updateBossFire(boss, deltaSeconds) {
+    if (!boss.hasEnteredCombat) return;
+
+    const config = getCurrentBossConfig();
+    boss.laserCooldown -= deltaSeconds;
+    if (boss.laserCooldown > 0) return;
+
+    enemyLaserManager.createLaser(boss, config.laser, {
+      originX: boss.x,
+      originY: boss.y,
+      onShot: (shot) => {
+        this.lastShot = shot;
+      },
+    });
+    boss.laserCooldown += config.laser.fireInterval;
+  },
+
+  damageBoss(damage) {
+    const boss = this.boss;
+    if (!boss || this.defeated || boss.deathProcessed) return;
+
+    boss.hp = Math.max(0, boss.hp - damage);
+    if (boss.hp <= 0) this.defeatBoss();
+  },
+
+  defeatBoss() {
+    const boss = this.boss;
+    if (!boss || boss.deathProcessed) return;
+
+    boss.deathProcessed = true;
+    this.defeated = true;
+    this.created = true;
+    this.lastShot = null;
+    gameState.status = GAME_STATES.BOSS_DEFEATED;
+    clearInputState();
+    enemyLaserManager.clear();
+    explosionManager.createExplosion(boss.x, boss.y, getBossDeathExplosionConfig(showLevelComplete));
+    boss.sprite.remove();
+    this.boss = null;
+  },
+
+  clear() {
+    if (this.boss) this.boss.sprite.remove();
+    this.boss = null;
+    this.created = false;
+    this.defeated = false;
+    this.lastShot = null;
+  },
 };
 
 function getEnemySpawnX(typeConfig) {
   if (typeConfig.direction > 0) return -typeConfig.width / 2;
   return LOGICAL_WIDTH + typeConfig.width / 2;
+}
+
+function getBossSpawnX(config) {
+  if (config.initialDirection > 0) return -config.width / 2;
+  return LOGICAL_WIDTH + config.width / 2;
 }
 
 function getCurrentEnemyHp() {
@@ -523,6 +953,10 @@ function getCurrentEnemyHp() {
 
 function getCurrentLevelConfig() {
   return LEVEL_CONFIG[currentLevel];
+}
+
+function getCurrentLevelStartConfig() {
+  return getCurrentLevelConfig().start;
 }
 
 function getCurrentStageConfig() {
@@ -541,6 +975,10 @@ function getCurrentEnemyLaserConfig() {
   return getCurrentLevelConfig().normalEnemy.laser;
 }
 
+function getCurrentBossConfig() {
+  return getCurrentLevelConfig().boss;
+}
+
 function getInitialEnemyLaserCooldown(enemyId) {
   const laserConfig = getCurrentEnemyLaserConfig();
   const spreadSlots = enemyVariants.length;
@@ -549,6 +987,10 @@ function getInitialEnemyLaserCooldown(enemyId) {
 
 function getCurrentHeavyMachineGunConfig() {
   return getCurrentLevelConfig().powerUps?.heavyMachineGun ?? null;
+}
+
+function getCurrentHealthDropConfig() {
+  return getCurrentLevelConfig().drops?.health ?? null;
 }
 
 function positionSpriteFromTopLeft(sprite, entity) {
@@ -565,6 +1007,171 @@ function positionSpriteFromCenter(sprite, entity) {
   sprite.style.top = `${(entity.y - entity.height / 2) * scale}px`;
   sprite.style.width = `${entity.width * scale}px`;
   sprite.style.height = `${entity.height * scale}px`;
+}
+
+function positionSpriteFromAnchor(sprite, entity) {
+  const scale = stage.clientWidth / LOGICAL_WIDTH;
+  sprite.style.left = `${(entity.x + entity.offsetX) * scale}px`;
+  sprite.style.top = `${(entity.y + entity.offsetY) * scale}px`;
+  sprite.style.width = `${entity.width * scale}px`;
+  sprite.style.height = `${entity.height * scale}px`;
+}
+
+function isGameplayActive() {
+  return gameState.status === GAME_STATES.PLAYING && tank.alive;
+}
+
+function clearInputState() {
+  input.left = false;
+  input.right = false;
+  input.fire = false;
+}
+
+function beginTankDeath() {
+  if (gameState.status !== GAME_STATES.PLAYING || !tank.alive) return;
+
+  const tankCenter = getTankCenter();
+  tank.alive = false;
+  tank.visible = false;
+  gameState.status = GAME_STATES.PLAYER_DYING;
+  clearInputState();
+  muzzleFlashes.length = 0;
+
+  explosionManager.createExplosion(
+    tankCenter.x,
+    tankCenter.y,
+    getTankDeathExplosionConfig(showGameOver),
+  );
+}
+
+function showGameOver() {
+  if (gameState.status !== GAME_STATES.PLAYER_DYING) return;
+
+  gameState.status = GAME_STATES.GAME_OVER;
+  gameOverScore.textContent = `PUNTOS: ${gameState.score}`;
+  gameOverLevel.textContent = `NIVEL ${currentLevel}`;
+  gameOverOverlay.hidden = false;
+}
+
+function hideGameOver() {
+  gameOverOverlay.hidden = true;
+}
+
+function showLevelComplete() {
+  if (gameState.status !== GAME_STATES.BOSS_DEFEATED) return;
+
+  gameState.status = GAME_STATES.LEVEL_COMPLETE;
+  levelCompleteTitle.textContent = `NIVEL ${currentLevel} SUPERADO`;
+  levelCompleteScore.textContent = `PUNTOS: ${gameState.score}`;
+  levelCompleteHp.textContent = `VIDA RESTANTE: ${tank.hp}/${tank.maxHp}`;
+  levelCompleteOverlay.hidden = false;
+}
+
+function hideLevelComplete() {
+  levelCompleteOverlay.hidden = true;
+}
+
+function showNextLevelPreview() {
+  nextLevelPreviewTitle.textContent = `NIVEL ${currentLevel} - PR\u00d3XIMAMENTE`;
+  nextLevelPreviewScore.textContent = `PUNTOS: ${gameState.score}`;
+  nextLevelPreviewHp.textContent = `VIDA RESTANTE: ${tank.hp}/${tank.maxHp}`;
+  nextLevelPreviewWeapon.textContent = `ARMA NIVEL ${weapon.level}`;
+  nextLevelPreviewOverlay.hidden = false;
+}
+
+function hideNextLevelPreview() {
+  nextLevelPreviewOverlay.hidden = true;
+}
+
+function showMainMenu() {
+  mainMenuOverlay.hidden = false;
+}
+
+function hideMainMenu() {
+  mainMenuOverlay.hidden = true;
+}
+
+function cleanupCurrentAttempt() {
+  projectileManager.clear();
+  enemyLaserManager.clear();
+  enemyManager.reset();
+  bossManager.clear();
+  explosionManager.clear();
+  enemyDeathVisualManager.clear();
+  laserTankImpactManager.clear();
+  healthDropManager.clear();
+  powerUpManager.clear();
+  muzzleFlashes.length = 0;
+  clearInputState();
+}
+
+function cleanupCompletedLevel() {
+  projectileManager.clear();
+  enemyLaserManager.clear();
+  enemyManager.reset();
+  bossManager.clear();
+  explosionManager.clear();
+  enemyDeathVisualManager.clear();
+  laserTankImpactManager.clear();
+  healthDropManager.clear();
+  powerUpManager.clear();
+  muzzleFlashes.length = 0;
+  clearInputState();
+}
+
+function resetCurrentLevelState() {
+  const startConfig = getCurrentLevelStartConfig();
+
+  gameState.score = 0;
+  gameState.normalEnemiesDestroyed = 0;
+  gameState.stage = startConfig.stage;
+  gameState.status = GAME_STATES.PLAYING;
+
+  tank.x = startConfig.tankX;
+  tank.y = startConfig.tankY;
+  tank.hp = startConfig.tankHp;
+  tank.maxHp = TANK_MAX_HP;
+  tank.alive = true;
+  tank.visible = true;
+
+  weapon.level = startConfig.weaponLevel;
+  enemyManager.spawnTimer = 0;
+}
+
+function restartCurrentLevel() {
+  cleanupCurrentAttempt();
+  resetCurrentLevelState();
+  hideGameOver();
+  hideLevelComplete();
+  hideNextLevelPreview();
+  hideMainMenu();
+}
+
+function returnToMainMenu() {
+  cleanupCurrentAttempt();
+  currentLevel = 1;
+  resetCurrentLevelState();
+  gameState.status = GAME_STATES.MENU;
+  hideGameOver();
+  hideLevelComplete();
+  hideNextLevelPreview();
+  showMainMenu();
+}
+
+function goToNextLevelPreview() {
+  if (gameState.status !== GAME_STATES.LEVEL_COMPLETE) return;
+
+  cleanupCompletedLevel();
+  currentLevel += 1;
+  gameState.stage = STAGES.INICIO;
+  gameState.normalEnemiesDestroyed = 0;
+  gameState.status = GAME_STATES.LEVEL_PREVIEW;
+  tank.alive = true;
+  tank.visible = true;
+  hideLevelComplete();
+  hideGameOver();
+  hideMainMenu();
+  showNextLevelPreview();
 }
 
 function updateTank(deltaSeconds) {
@@ -634,12 +1241,39 @@ function updateEnemy(enemy, deltaSeconds) {
   enemy.y = calculateTrajectoryY(enemy, enemy.x);
 }
 
+function updateBoss(boss, deltaSeconds) {
+  const minX = boss.width / 2;
+  const maxX = LOGICAL_WIDTH - boss.width / 2;
+
+  boss.x += boss.speed * boss.direction * deltaSeconds;
+  if (!boss.hasEnteredCombat && boss.x >= minX && boss.x <= maxX) {
+    boss.hasEnteredCombat = true;
+  }
+
+  if (boss.hasEnteredCombat && boss.x >= maxX) {
+    boss.x = maxX;
+    boss.direction *= -1;
+  } else if (boss.hasEnteredCombat && boss.x <= minX) {
+    boss.x = minX;
+    boss.direction *= -1;
+  }
+
+  boss.y = calculateTrajectoryY(boss, boss.x);
+}
+
 function handleProjectileEnemyCollisions() {
   for (let projectileIndex = projectileManager.projectiles.length - 1; projectileIndex >= 0; projectileIndex -= 1) {
     const projectile = projectileManager.projectiles[projectileIndex];
     const enemy = enemyManager.enemies.find((activeEnemy) => isProjectileCollidingWithEnemy(projectile, activeEnemy));
 
-    if (!enemy) continue;
+    if (!enemy) {
+      const boss = bossManager.boss;
+      if (boss && isProjectileCollidingWithEnemy(projectile, boss)) {
+        projectileManager.projectiles.splice(projectileIndex, 1);
+        bossManager.damageBoss(weapon.projectileDamage);
+      }
+      continue;
+    }
 
     projectileManager.projectiles.splice(projectileIndex, 1);
     enemy.hp -= weapon.projectileDamage;
@@ -647,6 +1281,7 @@ function handleProjectileEnemyCollisions() {
     if (enemy.hp <= 0) {
       explosionManager.createExplosion(enemy.x, enemy.y);
       enemyDeathVisualManager.keepSpriteTemporarily(enemy);
+      healthDropManager.tryCreateFromEnemyDeath(enemy);
       enemyManager.removeEnemy(enemy, { keepSprite: true });
       registerNormalEnemyDestroyed(enemy);
     }
@@ -685,6 +1320,7 @@ function enterStage(stageName) {
 
   if (stageName === STAGES.BOSS) {
     enemyManager.clearNormalEnemies();
+    bossManager.tryCreateBoss();
   }
 }
 
@@ -724,6 +1360,139 @@ function isPowerUpCollidingWithTank(powerUp) {
   );
 }
 
+function isHealthDropCollidingWithTank(drop) {
+  const dropLeft = drop.x - drop.width / 2;
+  const dropRight = drop.x + drop.width / 2;
+  const dropTop = drop.y - drop.height / 2;
+  const dropBottom = drop.y + drop.height / 2;
+  const tankLeft = tank.x;
+  const tankRight = tank.x + tank.width;
+  const tankTop = tank.y;
+  const tankBottom = tank.y + tank.height;
+
+  return (
+    dropRight >= tankLeft &&
+    dropLeft <= tankRight &&
+    dropBottom >= tankTop &&
+    dropTop <= tankBottom
+  );
+}
+
+function damageTank(damage) {
+  if (!isGameplayActive()) return;
+
+  tank.hp = Math.max(0, tank.hp - damage);
+  if (tank.hp <= 0) beginTankDeath();
+}
+
+function healTank(healAmount) {
+  tank.hp = Math.min(tank.maxHp, tank.hp + healAmount);
+}
+
+function isLaserCollidingWithTank(laser) {
+  return Boolean(getLaserTankImpactPoint(laser));
+}
+
+function getLaserTankImpactPoint(laser) {
+  const segment = getLaserSegment(laser);
+  const tankRect = {
+    left: tank.x,
+    right: tank.x + tank.width,
+    top: tank.y,
+    bottom: tank.y + tank.height,
+  };
+
+  if (isPointInsideRect(segment.x2, segment.y2, tankRect)) {
+    return { x: segment.x2, y: segment.y2 };
+  }
+
+  if (isPointInsideRect(segment.x1, segment.y1, tankRect)) {
+    return { x: segment.x1, y: segment.y1 };
+  }
+
+  const intersections = getSegmentRectIntersectionPoints(segment, tankRect);
+  if (intersections.length === 0) return null;
+
+  return intersections.reduce((closest, point) => {
+    const closestDistance = getSquaredDistance(closest, { x: segment.x2, y: segment.y2 });
+    const pointDistance = getSquaredDistance(point, { x: segment.x2, y: segment.y2 });
+    return pointDistance < closestDistance ? point : closest;
+  });
+}
+
+function getLaserSegment(laser) {
+  return {
+    x1: laser.x - Math.cos(laser.theta) * laser.length,
+    y1: laser.y - Math.sin(laser.theta) * laser.length,
+    x2: laser.x,
+    y2: laser.y,
+  };
+}
+
+function isSegmentIntersectingRect(segment, rect) {
+  if (isPointInsideRect(segment.x1, segment.y1, rect) || isPointInsideRect(segment.x2, segment.y2, rect)) {
+    return true;
+  }
+
+  return (
+    areSegmentsIntersecting(segment.x1, segment.y1, segment.x2, segment.y2, rect.left, rect.top, rect.right, rect.top) ||
+    areSegmentsIntersecting(segment.x1, segment.y1, segment.x2, segment.y2, rect.right, rect.top, rect.right, rect.bottom) ||
+    areSegmentsIntersecting(segment.x1, segment.y1, segment.x2, segment.y2, rect.right, rect.bottom, rect.left, rect.bottom) ||
+    areSegmentsIntersecting(segment.x1, segment.y1, segment.x2, segment.y2, rect.left, rect.bottom, rect.left, rect.top)
+  );
+}
+
+function isPointInsideRect(x, y, rect) {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function getSegmentRectIntersectionPoints(segment, rect) {
+  return [
+    getSegmentIntersectionPoint(segment.x1, segment.y1, segment.x2, segment.y2, rect.left, rect.top, rect.right, rect.top),
+    getSegmentIntersectionPoint(segment.x1, segment.y1, segment.x2, segment.y2, rect.right, rect.top, rect.right, rect.bottom),
+    getSegmentIntersectionPoint(segment.x1, segment.y1, segment.x2, segment.y2, rect.right, rect.bottom, rect.left, rect.bottom),
+    getSegmentIntersectionPoint(segment.x1, segment.y1, segment.x2, segment.y2, rect.left, rect.bottom, rect.left, rect.top),
+  ].filter(Boolean);
+}
+
+function areSegmentsIntersecting(ax, ay, bx, by, cx, cy, dx, dy) {
+  return Boolean(getSegmentIntersectionPoint(ax, ay, bx, by, cx, cy, dx, dy));
+}
+
+function getSegmentIntersectionPoint(ax, ay, bx, by, cx, cy, dx, dy) {
+  const denominator = (ax - bx) * (cy - dy) - (ay - by) * (cx - dx);
+  if (denominator === 0) return null;
+
+  const t = ((ax - cx) * (cy - dy) - (ay - cy) * (cx - dx)) / denominator;
+  const u = -((ax - bx) * (ay - cy) - (ay - by) * (ax - cx)) / denominator;
+  if (t < 0 || t > 1 || u < 0 || u > 1) return null;
+
+  return {
+    x: ax + t * (bx - ax),
+    y: ay + t * (by - ay),
+  };
+}
+
+function getSquaredDistance(pointA, pointB) {
+  const dx = pointA.x - pointB.x;
+  const dy = pointA.y - pointB.y;
+  return dx * dx + dy * dy;
+}
+
+function getLaserGroundImpactPoint(laser) {
+  const segment = getLaserSegment(laser);
+  const deltaY = segment.y2 - segment.y1;
+  if (deltaY === 0) return null;
+
+  const t = (debug.groundY - segment.y1) / deltaY;
+  if (t < 0 || t > 1) return null;
+
+  const x = segment.x1 + (segment.x2 - segment.x1) * t;
+  if (x < 0 || x > LOGICAL_WIDTH) return null;
+
+  return { x };
+}
+
 function hasLaserExited(laser) {
   const margin = laser.length;
   return (
@@ -751,6 +1520,14 @@ function getActiveTrajectoryConfigs() {
       trajectory: enemy.trajectory,
     });
   });
+
+  if (gameState.stage === STAGES.BOSS && bossManager.boss) {
+    configs.set("boss-1", {
+      color: "#ff4d4d",
+      label: "Boss 1 seno",
+      trajectory: bossManager.boss.trajectory,
+    });
+  }
 
   return Array.from(configs.values());
 }
@@ -805,6 +1582,9 @@ function drawDebug() {
   drawDebugText(`Stage: ${gameState.stage}`, panelX, panelY);
   drawDebugText(`Kills normales: ${gameState.normalEnemiesDestroyed}`, panelX + 250, panelY);
   panelY += 20;
+  drawDebugText(`Estado juego: ${gameState.status}`, panelX, panelY);
+  drawDebugText(`tank.alive: ${tank.alive}`, panelX + 250, panelY);
+  panelY += 20;
   drawDebugText(`Max simultaneo: ${stageConfig.maxNormalEnemies}`, panelX, panelY);
   drawDebugText(`Intervalo spawn: ${stageConfig.spawnInterval ?? "sin spawn"}s`, panelX + 250, panelY);
   panelY += 24;
@@ -814,11 +1594,40 @@ function drawDebug() {
   drawDebugText(`vx ultimo: ${formatLastLaserComponent("vx")}`, panelX, panelY);
   drawDebugText(`vy ultimo: ${formatLastLaserComponent("vy")}`, panelX + 250, panelY);
   panelY += 24;
+  drawDebugText(`HP tanque: ${tank.hp}/${tank.maxHp}`, panelX, panelY);
+  drawDebugText(`Dano laser: ${getCurrentEnemyLaserConfig().damage}`, panelX + 250, panelY);
+  panelY += 24;
+  drawDebugText(`Drops salud activos: ${healthDropManager.drops.length}`, panelX, panelY);
+  drawDebugText(`dropChance salud: ${getCurrentHealthDropConfig().dropChance}`, panelX + 250, panelY);
+  panelY += 20;
+  drawDebugText(`healAmount salud: ${getCurrentHealthDropConfig().healAmount}`, panelX, panelY);
+  panelY += 24;
   drawDebugText(`Heavy generado: ${powerUpManager.heavyMachineGun.generated}`, panelX, panelY);
   drawDebugText(`Heavy activo: ${Boolean(powerUpManager.heavyMachineGun.active)}`, panelX + 250, panelY);
   panelY += 20;
   drawDebugText(`weapon.level: ${weapon.level}`, panelX, panelY);
   panelY += 24;
+
+  if (gameState.stage === STAGES.BOSS || bossManager.defeated) {
+    const boss = bossManager.boss;
+    const bossConfig = getCurrentBossConfig();
+    const bossTrajectory = boss?.trajectory ?? bossConfig.trajectory;
+    context.fillStyle = "#ff8080";
+    drawDebugText(`Boss estado: ${getBossDebugState()}`, panelX, panelY);
+    drawDebugText(`HP Boss: ${boss ? `${boss.hp}/${boss.maxHp}` : "n/a"}`, panelX + 250, panelY);
+    panelY += 20;
+    drawDebugText(`Boss funcion: ${bossTrajectory.type}`, panelX, panelY);
+    drawDebugText(`D=${bossTrajectory.midline} | A=${bossTrajectory.amplitude} | T=${bossTrajectory.period}`, panelX + 250, panelY);
+    panelY += 20;
+    drawDebugText(`Boss ecuacion: ${getTrajectoryEquation(bossTrajectory)}`, panelX, panelY);
+    panelY += 20;
+    drawDebugText(`Boss X=${boss ? boss.x.toFixed(1) : "n/a"} | Y=${boss ? boss.y.toFixed(1) : "n/a"} | dir=${boss ? boss.direction : "n/a"}`, panelX, panelY);
+    panelY += 20;
+    drawDebugText(`Boss theta: ${formatBossShotTheta()}`, panelX, panelY);
+    panelY += 20;
+    drawDebugText(`Boss vx=${formatBossShotComponent("vx")} | vy=${formatBossShotComponent("vy")}`, panelX, panelY);
+    panelY += 24;
+  }
 
   getActiveTrajectoryConfigs().forEach((trajectoryConfig) => {
     context.fillStyle = trajectoryConfig.color;
@@ -871,8 +1680,10 @@ function drawDebugNumber(text, x, y) {
 
 function drawScoreHud() {
   const scoreText = `PUNTOS: ${gameState.score}`;
+  const hpText = `VIDA: ${tank.hp}/${tank.maxHp}`;
   const levelText = `NIVEL ${currentLevel}`;
   const stageText = gameState.stage;
+  const bossDefeatedText = "BOSS DERROTADO";
 
   context.save();
   context.font = "24px Consolas, monospace";
@@ -881,16 +1692,35 @@ function drawScoreHud() {
   context.strokeStyle = "rgba(0, 0, 0, 0.9)";
 
   const scoreWidth = context.measureText(scoreText).width;
+  const hpWidth = context.measureText(hpText).width;
   const levelWidth = context.measureText(levelText).width;
   const stageWidth = context.measureText(stageText).width;
-  const x = LOGICAL_WIDTH - Math.max(scoreWidth, levelWidth, stageWidth) - 24;
+  const barWidth = 170;
+  const barHeight = 10;
+  const x = LOGICAL_WIDTH - Math.max(scoreWidth, hpWidth, levelWidth, stageWidth, barWidth) - 24;
 
   context.strokeText(scoreText, x, 34);
   context.fillText(scoreText, x, 34);
-  context.strokeText(levelText, x, 62);
-  context.fillText(levelText, x, 62);
-  context.strokeText(stageText, x, 90);
-  context.fillText(stageText, x, 90);
+  context.strokeText(hpText, x, 62);
+  context.fillText(hpText, x, 62);
+
+  const hpRatio = tank.hp / tank.maxHp;
+  context.fillStyle = "rgba(0, 0, 0, 0.55)";
+  context.fillRect(x, 72, barWidth, barHeight);
+  context.fillStyle = "#55ff7a";
+  context.fillRect(x, 72, barWidth * hpRatio, barHeight);
+
+  context.fillStyle = "#fff6a6";
+  context.strokeText(levelText, x, 106);
+  context.fillText(levelText, x, 106);
+  context.strokeText(stageText, x, 134);
+  context.fillText(stageText, x, 134);
+
+  if (bossManager.defeated) {
+    context.fillStyle = "#ffef8a";
+    context.strokeText(bossDefeatedText, x, 166);
+    context.fillText(bossDefeatedText, x, 166);
+  }
   context.restore();
 }
 
@@ -912,32 +1742,116 @@ function drawEnemyLasers() {
   enemyLaserManager.lasers.forEach((laser) => {
     const endX = laser.x - Math.cos(laser.theta) * laser.length;
     const endY = laser.y - Math.sin(laser.theta) * laser.length;
+    const isBossLaser = laser.type === "boss";
+    const lineWidth = laser.lineWidth ?? ENEMY_LASER_LINE_WIDTH;
     const gradient = context.createLinearGradient(endX, endY, laser.x, laser.y);
-    gradient.addColorStop(0, "rgba(72, 255, 128, 0)");
-    gradient.addColorStop(0.45, "rgba(92, 255, 150, 0.75)");
-    gradient.addColorStop(1, "rgba(210, 255, 220, 1)");
+    if (isBossLaser) {
+      gradient.addColorStop(0, "rgba(255, 20, 20, 0)");
+      gradient.addColorStop(0.45, "rgba(255, 34, 34, 0.86)");
+      gradient.addColorStop(1, "rgba(255, 220, 220, 1)");
+    } else {
+      gradient.addColorStop(0, "rgba(72, 255, 128, 0)");
+      gradient.addColorStop(0.45, "rgba(92, 255, 150, 0.75)");
+      gradient.addColorStop(1, "rgba(210, 255, 220, 1)");
+    }
 
     context.lineCap = "round";
-    context.strokeStyle = "rgba(62, 255, 126, 0.22)";
-    context.lineWidth = ENEMY_LASER_LINE_WIDTH + 8;
+    context.strokeStyle = isBossLaser ? "rgba(255, 20, 20, 0.25)" : "rgba(62, 255, 126, 0.22)";
+    context.lineWidth = lineWidth + (isBossLaser ? 13 : 8);
     context.beginPath();
     context.moveTo(endX, endY);
     context.lineTo(laser.x, laser.y);
     context.stroke();
 
-    context.strokeStyle = "rgba(91, 255, 150, 0.45)";
-    context.lineWidth = ENEMY_LASER_LINE_WIDTH + 4;
+    context.strokeStyle = isBossLaser ? "rgba(255, 75, 75, 0.58)" : "rgba(91, 255, 150, 0.45)";
+    context.lineWidth = lineWidth + (isBossLaser ? 7 : 4);
     context.beginPath();
     context.moveTo(endX, endY);
     context.lineTo(laser.x, laser.y);
     context.stroke();
 
     context.strokeStyle = gradient;
-    context.lineWidth = ENEMY_LASER_LINE_WIDTH;
+    context.lineWidth = lineWidth;
     context.beginPath();
     context.moveTo(endX, endY);
     context.lineTo(laser.x, laser.y);
     context.stroke();
+  });
+  context.restore();
+}
+
+function drawLaserTankImpacts() {
+  context.save();
+  laserTankImpactManager.impacts.forEach((impact) => {
+    const progress = Math.max(0, impact.remainingTime / impact.duration);
+    const radius = LASER_TANK_IMPACT_RADIUS * progress;
+    const glowRadius = radius * 1.7;
+
+    context.globalAlpha = progress;
+    context.lineCap = "round";
+    context.strokeStyle = "rgba(105, 255, 160, 0.35)";
+    context.lineWidth = 8 * progress;
+    context.beginPath();
+    context.arc(impact.x, impact.y, glowRadius, 0, 2 * Math.PI);
+    context.stroke();
+
+    context.strokeStyle = "rgba(218, 255, 224, 0.95)";
+    context.lineWidth = 2.5;
+    context.beginPath();
+    context.moveTo(impact.x - radius, impact.y);
+    context.lineTo(impact.x + radius, impact.y);
+    context.moveTo(impact.x, impact.y - radius);
+    context.lineTo(impact.x, impact.y + radius);
+    context.stroke();
+
+    context.fillStyle = "rgba(140, 255, 165, 0.9)";
+    context.beginPath();
+    context.arc(impact.x, impact.y, Math.max(2, radius * 0.25), 0, 2 * Math.PI);
+    context.fill();
+  });
+  context.restore();
+}
+
+function drawHealthDrops() {
+  context.save();
+  healthDropManager.drops.forEach((drop) => {
+    const pulse = 1 + Math.sin(drop.pulseTime * drop.pulseSpeed) * drop.pulseScale;
+    const boxSize = Math.min(drop.width, drop.height);
+    const half = boxSize / 2;
+
+    context.save();
+    context.translate(drop.x, drop.y);
+    context.scale(pulse, pulse);
+
+    context.fillStyle = "rgba(25, 255, 126, 0.22)";
+    context.strokeStyle = "rgba(170, 255, 205, 0.92)";
+    context.lineWidth = 3;
+    context.fillRect(-half, -half, boxSize, boxSize);
+    context.strokeRect(-half, -half, boxSize, boxSize);
+
+    context.fillStyle = "rgba(255, 255, 255, 0.16)";
+    context.fillRect(-half + 6, -half + 6, boxSize - 12, 7);
+
+    context.strokeStyle = "#f4f7f0";
+    context.lineWidth = 5;
+    context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(-half * 0.38, half * 0.34);
+    context.lineTo(half * 0.28, -half * 0.32);
+    context.stroke();
+
+    context.strokeStyle = "#b9c2ba";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.arc(half * 0.34, -half * 0.38, half * 0.2, 0.35 * Math.PI, 1.65 * Math.PI);
+    context.stroke();
+
+    context.fillStyle = "#f4f7f0";
+    context.beginPath();
+    context.arc(-half * 0.45, half * 0.42, half * 0.13, 0, 2 * Math.PI);
+    context.fill();
+
+    context.restore();
   });
   context.restore();
 }
@@ -950,6 +1864,23 @@ function formatLastLaserTheta() {
 function formatLastLaserComponent(component) {
   if (!enemyLaserManager.lastShot) return "n/a";
   return enemyLaserManager.lastShot[component].toFixed(1);
+}
+
+function formatBossShotTheta() {
+  if (!bossManager.lastShot) return "n/a";
+  return `${bossManager.lastShot.theta.toFixed(3)} rad | ${(bossManager.lastShot.theta * 180 / Math.PI).toFixed(1)} grados`;
+}
+
+function formatBossShotComponent(component) {
+  if (!bossManager.lastShot) return "n/a";
+  return bossManager.lastShot[component].toFixed(1);
+}
+
+function getBossDebugState() {
+  if (bossManager.defeated) return "derrotado";
+  if (bossManager.boss) return bossManager.boss.hasEnteredCombat ? "activo" : "entrando";
+  if (bossManager.created) return "creado sin instancia";
+  return "no creado";
 }
 
 function drawMuzzleFlash() {
@@ -994,6 +1925,41 @@ function drawEnemyHealthBars() {
     context.fillStyle = "#55ff7a";
     context.fillRect(barX, barY, barWidth * hpRatio, barHeight);
   });
+  context.restore();
+}
+
+function drawBossHealthBar() {
+  const boss = bossManager.boss;
+  if (!boss || gameState.stage !== STAGES.BOSS) return;
+
+  const barWidth = 620;
+  const barHeight = 18;
+  const barX = (LOGICAL_WIDTH - barWidth) / 2;
+  const barY = 22;
+  const hpRatio = Math.max(0, boss.hp / boss.maxHp);
+  const label = `BOSS  ${boss.hp} / ${boss.maxHp}`;
+
+  context.save();
+  context.fillStyle = "rgba(0, 0, 0, 0.68)";
+  context.fillRect(barX - 8, barY - 8, barWidth + 16, barHeight + 34);
+  context.strokeStyle = "rgba(255, 65, 65, 0.95)";
+  context.lineWidth = 3;
+  context.strokeRect(barX - 8, barY - 8, barWidth + 16, barHeight + 34);
+
+  context.fillStyle = "rgba(55, 0, 0, 0.92)";
+  context.fillRect(barX, barY, barWidth, barHeight);
+  context.fillStyle = "#ff3a3a";
+  context.fillRect(barX, barY, barWidth * hpRatio, barHeight);
+  context.strokeStyle = "#ffd0d0";
+  context.lineWidth = 2;
+  context.strokeRect(barX, barY, barWidth, barHeight);
+
+  context.font = "18px Consolas, monospace";
+  context.fillStyle = "#ffe3e3";
+  context.lineWidth = 4;
+  context.strokeStyle = "rgba(0, 0, 0, 0.9)";
+  context.strokeText(label, barX, barY + 42);
+  context.fillText(label, barX, barY + 42);
   context.restore();
 }
 
@@ -1057,33 +2023,73 @@ function drawEnemyCoordinates(enemy) {
   context.fill();
 }
 
+function updateGameplay(deltaSeconds) {
+  updateTank(deltaSeconds);
+  enemyManager.update(deltaSeconds);
+  bossManager.update(deltaSeconds);
+  enemyLaserManager.update(deltaSeconds);
+  if (!isGameplayActive()) return;
+
+  projectileManager.update(deltaSeconds);
+  handleProjectileEnemyCollisions();
+  if (!isGameplayActive()) return;
+
+  powerUpManager.update(deltaSeconds);
+  healthDropManager.update(deltaSeconds);
+  explosionManager.update(deltaSeconds);
+  enemyDeathVisualManager.update(deltaSeconds);
+  laserTankImpactManager.update(deltaSeconds);
+  updateMuzzleFlash(deltaSeconds);
+}
+
+function updatePlayerDying(deltaSeconds) {
+  explosionManager.update(deltaSeconds);
+}
+
+function updateGame(deltaSeconds) {
+  if (gameState.status === GAME_STATES.PLAYING) {
+    updateGameplay(deltaSeconds);
+    return;
+  }
+
+  if (gameState.status === GAME_STATES.PLAYER_DYING) {
+    updatePlayerDying(deltaSeconds);
+    return;
+  }
+
+  if (gameState.status === GAME_STATES.BOSS_DEFEATED) {
+    explosionManager.update(deltaSeconds);
+  }
+}
+
+function positionTankSprite() {
+  tankSprite.style.display = tank.visible ? "block" : "none";
+  positionSpriteFromTopLeft(tankSprite, tank);
+}
+
 let previousTime = performance.now();
 
 function render(currentTime) {
   const deltaSeconds = Math.min((currentTime - previousTime) / 1000, 0.05);
   previousTime = currentTime;
-  updateTank(deltaSeconds);
-  enemyManager.update(deltaSeconds);
-  enemyLaserManager.update(deltaSeconds);
-  projectileManager.update(deltaSeconds);
-  handleProjectileEnemyCollisions();
-  powerUpManager.update(deltaSeconds);
-  explosionManager.update(deltaSeconds);
-  enemyDeathVisualManager.update(deltaSeconds);
-  updateMuzzleFlash(deltaSeconds);
+  updateGame(deltaSeconds);
   context.clearRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
   drawProjectiles();
   drawEnemyLasers();
+  drawLaserTankImpacts();
+  drawHealthDrops();
   drawMuzzleFlash();
   drawEnemyHealthBars();
-  positionSpriteFromTopLeft(tankSprite, tank);
+  drawBossHealthBar();
+  positionTankSprite();
   enemyManager.enemies.forEach((enemy) => positionSpriteFromCenter(enemy.sprite, enemy));
+  if (bossManager.boss) positionSpriteFromAnchor(bossManager.boss.sprite, bossManager.boss);
   enemyDeathVisualManager.visuals.forEach((visual) => positionSpriteFromCenter(visual.sprite, visual));
-  explosionManager.explosions.forEach((explosion) => positionSpriteFromCenter(explosion.sprite, explosion));
+  explosionManager.explosions.forEach((explosion) => positionSpriteFromAnchor(explosion.sprite, explosion));
   if (powerUpManager.heavyMachineGun.active) {
     positionSpriteFromCenter(powerUpManager.heavyMachineGun.active.sprite, powerUpManager.heavyMachineGun.active);
   }
-  if (debug.enabled) drawDebug();
+  if (debug.enabled && gameState.status !== GAME_STATES.LEVEL_COMPLETE && gameState.status !== GAME_STATES.LEVEL_PREVIEW) drawDebug();
   drawScoreHud();
   requestAnimationFrame(render);
 }
@@ -1098,21 +2104,30 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (!isGameplayActive()) return;
+
   if (event.code === "KeyA" || event.code === "ArrowLeft") input.left = true;
   if (event.code === "KeyD" || event.code === "ArrowRight") input.right = true;
   if (event.code === "Space") input.fire = true;
 });
 
 window.addEventListener("keyup", (event) => {
+  if (!isGameplayActive()) return;
+
   if (event.code === "KeyA" || event.code === "ArrowLeft") input.left = false;
   if (event.code === "KeyD" || event.code === "ArrowRight") input.right = false;
   if (event.code === "Space") input.fire = false;
 });
 
 window.addEventListener("blur", () => {
-  input.left = false;
-  input.right = false;
-  input.fire = false;
+  clearInputState();
 });
+
+retryButton.addEventListener("click", restartCurrentLevel);
+mainMenuButton.addEventListener("click", returnToMainMenu);
+nextLevelButton.addEventListener("click", goToNextLevelPreview);
+levelCompleteMenuButton.addEventListener("click", returnToMainMenu);
+nextLevelMenuButton.addEventListener("click", returnToMainMenu);
+startGameButton.addEventListener("click", restartCurrentLevel);
 
 requestAnimationFrame(render);

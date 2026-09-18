@@ -12,6 +12,53 @@
         <img class="game-background" src="assets/gif/desert_metal_slug_by_mugengamer1_dg90hj5-pre.jpg" alt="Escenario des&eacute;rtico" />
         <canvas id="game-canvas" width="1200" height="675">Tu navegador no soporta Canvas 2D.</canvas>
         <img id="tank-sprite" class="game-sprite" src="assets/gif/Tanque.gif" alt="Tanque" />
+        <section id="game-over-overlay" class="game-overlay game-over-overlay" aria-label="Game Over" hidden>
+          <div class="overlay-panel game-over-panel">
+            <p class="overlay-kicker">MISI&Oacute;N FALLIDA</p>
+            <h1>GAME OVER</h1>
+            <div class="game-over-stats" aria-live="polite">
+              <p id="game-over-score">PUNTOS: 0</p>
+              <p id="game-over-level">NIVEL 1</p>
+            </div>
+            <div class="overlay-actions">
+              <button id="retry-button" class="arcade-button arcade-button-primary" type="button">REINTENTAR</button>
+              <button id="main-menu-button" class="arcade-button arcade-button-secondary" type="button">MEN&Uacute; PRINCIPAL</button>
+            </div>
+          </div>
+        </section>
+        <section id="level-complete-overlay" class="game-overlay level-complete-overlay" aria-label="Nivel superado" hidden>
+          <div class="overlay-panel level-complete-panel">
+            <p class="overlay-kicker">OBJETIVO CUMPLIDO</p>
+            <h1 id="level-complete-title">NIVEL 1 SUPERADO</h1>
+            <div class="level-complete-stats" aria-live="polite">
+              <p id="level-complete-score">PUNTOS: 0</p>
+              <p id="level-complete-hp">VIDA RESTANTE: 100/100</p>
+            </div>
+            <div class="overlay-actions">
+              <button id="next-level-button" class="arcade-button arcade-button-primary" type="button">SIGUIENTE NIVEL</button>
+              <button id="level-complete-menu-button" class="arcade-button arcade-button-secondary" type="button">MEN&Uacute; PRINCIPAL</button>
+            </div>
+          </div>
+        </section>
+        <section id="next-level-preview-overlay" class="game-overlay next-level-preview-overlay" aria-label="Siguiente nivel" hidden>
+          <div class="overlay-panel next-level-preview-panel">
+            <p class="overlay-kicker">PREPARANDO MISI&Oacute;N</p>
+            <h2 id="next-level-preview-title">NIVEL 2 - PR&Oacute;XIMAMENTE</h2>
+            <div class="level-complete-stats" aria-live="polite">
+              <p id="next-level-preview-score">PUNTOS: 0</p>
+              <p id="next-level-preview-hp">VIDA RESTANTE: 100/100</p>
+              <p id="next-level-preview-weapon">ARMA NIVEL 1</p>
+            </div>
+            <button id="next-level-menu-button" class="arcade-button arcade-button-secondary" type="button">MEN&Uacute; PRINCIPAL</button>
+          </div>
+        </section>
+        <section id="main-menu-overlay" class="game-overlay main-menu-overlay" aria-label="Men&uacute; principal" hidden>
+          <div class="overlay-panel main-menu-panel">
+            <p class="overlay-kicker">LASERBLAST</p>
+            <h2>BASE DE OPERACIONES</h2>
+            <button id="start-game-button" class="arcade-button arcade-button-primary" type="button">INICIAR</button>
+          </div>
+        </section>
       </div>
     </main>
     <script src="js/game.js"></script>
