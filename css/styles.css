@@ -283,6 +283,7 @@ body {
 }
 
 .game-over-panel h1,
+.pause-panel h1,
 .level-complete-panel h1,
 #next-level-preview-title {
   margin: 0;
@@ -294,6 +295,20 @@ body {
     0 4px 0 #5a150e,
     0 0 18px rgba(255, 74, 38, 0.8),
     0 0 38px rgba(255, 195, 67, 0.48);
+}
+
+.pause-panel {
+  width: min(620px, 92%);
+}
+
+.pause-panel h1 {
+  color: #eaffc5;
+  font-size: clamp(52px, 8vw, 108px);
+  margin-bottom: clamp(22px, 3vw, 36px);
+  text-shadow:
+    0 4px 0 #26380c,
+    0 0 18px rgba(168, 255, 85, 0.82),
+    0 0 38px rgba(255, 218, 67, 0.42);
 }
 
 .main-menu-panel h2 {

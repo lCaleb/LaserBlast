@@ -10,6 +10,10 @@ const debugPresentationPanel = document.querySelector("#debug-presentation-panel
 const debugStageSelect = document.querySelector("#debug-stage-select");
 const debugLoadStageButton = document.querySelector("#debug-load-stage-button");
 const debugRestartLevelButton = document.querySelector("#debug-restart-level-button");
+const pauseOverlay = document.querySelector("#pause-overlay");
+const continueButton = document.querySelector("#continue-button");
+const pauseRestartButton = document.querySelector("#pause-restart-button");
+const pauseMenuButton = document.querySelector("#pause-menu-button");
 const gameOverOverlay = document.querySelector("#game-over-overlay");
 const gameOverScore = document.querySelector("#game-over-score");
 const gameOverLevel = document.querySelector("#game-over-level");
@@ -80,6 +84,7 @@ const STAGES = {
 const GAME_STATES = {
   MENU: "MENU",
   PLAYING: "PLAYING",
+  PAUSED: "PAUSED",
   PLAYER_DYING: "PLAYER_DYING",
   BOSS_DEFEATED: "BOSS_DEFEATED",
   LEVEL_COMPLETE: "LEVEL_COMPLETE",
@@ -159,7 +164,7 @@ const LEVEL_CONFIG = {
     },
     drops: {
       health: {
-        dropChance: 0.2,
+        dropChance: 0.3,
         healAmount: 25,
         width: 42,
         height: 42,
@@ -1361,6 +1366,14 @@ function hideNextLevelPreview() {
   nextLevelPreviewOverlay.hidden = true;
 }
 
+function showPauseMenu() {
+  pauseOverlay.hidden = false;
+}
+
+function hidePauseMenu() {
+  pauseOverlay.hidden = true;
+}
+
 function showMainMenu() {
   mainMenuOverlay.hidden = false;
 }
@@ -1370,6 +1383,7 @@ function hideMainMenu() {
 }
 
 function hideAllOverlays() {
+  hidePauseMenu();
   hideGameOver();
   hideLevelComplete();
   hideNextLevelPreview();
@@ -1415,6 +1429,30 @@ function cleanupCompletedLevel() {
 function cleanupForDebugPresentation() {
   cleanupCurrentAttempt();
   hideAllOverlays();
+}
+
+function pauseGame() {
+  if (!isGameplayActive()) return;
+
+  clearInputState();
+  gameState.status = GAME_STATES.PAUSED;
+  showPauseMenu();
+}
+
+function resumeGame() {
+  if (gameState.status !== GAME_STATES.PAUSED) return;
+
+  hidePauseMenu();
+  gameState.status = GAME_STATES.PLAYING;
+}
+
+function togglePause() {
+  if (gameState.status === GAME_STATES.PAUSED) {
+    resumeGame();
+    return;
+  }
+
+  pauseGame();
 }
 
 function resetCurrentLevelState() {
@@ -2800,8 +2838,13 @@ function render(currentTime) {
 }
 
 window.addEventListener("keydown", (event) => {
-  if (event.code === "ArrowLeft" || event.code === "ArrowRight" || event.code === "Space") {
+  if (event.code === "ArrowLeft" || event.code === "ArrowRight" || event.code === "Space" || event.code === "Escape") {
     event.preventDefault();
+  }
+
+  if (event.code === "Escape" && !event.repeat) {
+    togglePause();
+    return;
   }
 
   if (event.code === "KeyQ" && !event.repeat) {
@@ -2831,6 +2874,9 @@ window.addEventListener("blur", () => {
 
 retryButton.addEventListener("click", restartCurrentLevel);
 mainMenuButton.addEventListener("click", returnToMainMenu);
+continueButton.addEventListener("click", resumeGame);
+pauseRestartButton.addEventListener("click", restartCurrentLevel);
+pauseMenuButton.addEventListener("click", returnToMainMenu);
 nextLevelButton.addEventListener("click", goToNextLevelPreview);
 levelCompleteMenuButton.addEventListener("click", returnToMainMenu);
 nextLevelMenuButton.addEventListener("click", returnToMainMenu);
@@ -2855,6 +2901,11 @@ debugRestartLevelButton.addEventListener("click", restartCurrentLevelFromDebug);
 
 debugPresentationPanel.addEventListener("keydown", (event) => {
   event.stopPropagation();
+  if (event.code === "Escape" && !event.repeat) {
+    event.preventDefault();
+    togglePause();
+    return;
+  }
   if (event.code === "Space") event.preventDefault();
 });
 

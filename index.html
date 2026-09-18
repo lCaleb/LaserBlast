@@ -13,7 +13,7 @@
         <img class="game-background" src="assets/gif/desert_metal_slug_by_mugengamer1_dg90hj5-pre.jpg" alt="Escenario des&eacute;rtico" />
         <canvas id="game-canvas" width="1200" height="675">Tu navegador no soporta Canvas 2D.</canvas>
         <img id="tank-sprite" class="game-sprite" src="assets/gif/Tanque.gif" alt="Tanque" />
-        <div class="version-badge" aria-label="Versi&oacute;n del juego">LaserBlast v2026.09.18.1</div>
+        <div class="version-badge" aria-label="Versi&oacute;n del juego">LaserBlast v2026.09.18.1.1</div>
         <button id="debug-presentation-toggle" class="debug-presentation-toggle" type="button" aria-pressed="false" hidden>PRUEBAS</button>
         <aside id="debug-presentation-panel" class="debug-presentation-panel" aria-label="Pruebas y presentaci&oacute;n" hidden>
           <h2>PRUEBAS / PRESENTACI&Oacute;N</h2>
@@ -28,6 +28,17 @@
             <button id="debug-restart-level-button" type="button">REINICIAR NIVEL</button>
           </div>
         </aside>
+        <section id="pause-overlay" class="game-overlay pause-overlay" aria-label="Pausa" hidden>
+          <div class="overlay-panel pause-panel">
+            <p class="overlay-kicker">LASERBLAST</p>
+            <h1>PAUSA</h1>
+            <div class="overlay-actions">
+              <button id="continue-button" class="arcade-button arcade-button-primary" type="button">CONTINUAR</button>
+              <button id="pause-restart-button" class="arcade-button arcade-button-secondary" type="button">REINICIAR NIVEL</button>
+              <button id="pause-menu-button" class="arcade-button arcade-button-secondary" type="button">MEN&Uacute; PRINCIPAL</button>
+            </div>
+          </div>
+        </section>
         <section id="game-over-overlay" class="game-overlay game-over-overlay" aria-label="Game Over" hidden>
           <div class="overlay-panel game-over-panel">
             <p class="overlay-kicker">MISI&Oacute;N FALLIDA</p>
@@ -82,6 +93,7 @@
             <div class="main-menu-controls" aria-label="Controles">
               <p><span>A / D</span> o <span>&larr; / &rarr;</span> &mdash; MOVER</p>
               <p><span>ESPACIO</span> &mdash; DISPARAR</p>
+              <p><span>ESC</span> &mdash; PAUSA / CONTINUAR</p>
               <p><span>Q</span> &mdash; PRESENTACI&Oacute;N / DEBUG</p>
             </div>
           </div>
