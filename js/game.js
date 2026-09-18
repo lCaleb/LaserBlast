@@ -933,12 +933,13 @@ const enemyManager = {
 
   update(deltaSeconds) {
     const stageConfig = getCurrentStageConfig();
-    if (!stageConfig.spawnsNormalEnemies) return;
 
-    this.spawnTimer -= deltaSeconds;
-    while (this.enemies.length < stageConfig.maxNormalEnemies && this.spawnTimer <= 0) {
-      this.createEnemy();
-      this.spawnTimer += stageConfig.spawnInterval;
+    if (stageConfig.spawnsNormalEnemies) {
+      this.spawnTimer -= deltaSeconds;
+      while (this.enemies.length < stageConfig.maxNormalEnemies && this.spawnTimer <= 0) {
+        this.createEnemy();
+        this.spawnTimer += stageConfig.spawnInterval;
+      }
     }
 
     this.enemies.forEach((enemy) => updateEnemy(enemy, deltaSeconds));
@@ -1036,6 +1037,7 @@ const bossManager = {
   tryCreateBoss() {
     if (this.created || this.defeated) return;
     if (gameState.stage !== STAGES.BOSS) return;
+    if (enemyManager.enemies.length > 0) return;
 
     const config = getCurrentBossConfig();
     const sprite = document.createElement("img");
@@ -1751,7 +1753,6 @@ function enterStage(stageName) {
   enemyManager.spawnTimer = getCurrentStageConfig().spawnInterval ?? 0;
 
   if (stageName === STAGES.BOSS) {
-    enemyManager.clearNormalEnemies();
     bossManager.tryCreateBoss();
   }
 }
