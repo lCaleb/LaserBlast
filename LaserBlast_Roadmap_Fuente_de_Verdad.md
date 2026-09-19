@@ -58,6 +58,8 @@ Actualmente están cerrados/implementados:
 - Boss 2 implementado.
 - Nivel 3 implementado a nivel de configuración/código.
 - Boss 3 implementado.
+- Nivel 4 implementado a nivel de configuración/código.
+- Boss 4 implementado.
 - Menú principal definitivo.
 - Menú principal y overlays en ajuste responsive para pantallas pequeñas.
 - Sistema global de pausa.
@@ -180,7 +182,8 @@ La mejora obtenida en un nivel debe conservarse al avanzar al siguiente.
 ### Nivel 4
 
 - Inicia con 4 cañones.
-- Heavy durante el Nudo -> mejora de cadencia.
+- No usa Heavy.
+- Mejora de cadencia durante el Nudo mediante pickup de núcleo/energía.
 - Valor de referencia actual:
 
 ```text
@@ -646,7 +649,8 @@ T = 600, 400, 400
 
 - Inicia con 3 cañones.
 - Heavy durante Nudo -> 4 cañones.
-- Boss 3 implementado con `assets/gif/jefe3.gif`.
+- Boss 3 implementado visualmente con `assets/gif/jefe4.gif`.
+- Tamaño visual actual Boss 3: `260 x 195`.
 - Boss 3 conserva patrón normal `1 -> 1 -> 2 -> 2`.
 - Boss 3 tiene ataque especial periódico:
   - abanico semicircular hacia abajo;
@@ -664,7 +668,7 @@ T = 600, 400, 400
   - se dispara automáticamente al mantener `Space`;
   - cooldown de `3s`;
   - Nivel 3 dispara `1` misil;
-  - cada misil hace `4` de daño;
+  - cada misil hace `12` de daño;
   - el misil es teledirigido con giro progresivo hacia enemigos vivos;
   - si no hay objetivos, mantiene su trayectoria hasta salir de pantalla;
   - al colisionar usa explosión propia hecha en Canvas;
@@ -672,13 +676,68 @@ T = 600, 400, 400
   - debug pinta posición/ángulo del misil con marcador propio.
 - Pendiente: prueba completa de gameplay y ajuste fino de balance.
 
-### Nivel 4 — PENDIENTE
+### Nivel 4 — IMPLEMENTADO / PENDIENTE DE BALANCE FINAL
 
 - Enemigos con fase/desfase.
-- Inicia con 4 cañones.
-- Heavy durante Nudo -> mejora de cadencia.
-- Referencia: `fireInterval 0.09 -> 0.07`.
-- Boss 4 seno + coseno.
+- Mantiene 3 carriles.
+- Fases usadas: `0`, `π/2`, `π`, `3π/2`.
+- Enemigos normales:
+  - HP `58`;
+  - amplitud `42`;
+  - período `560`;
+  - láser speed `390`;
+  - láser damage `9`;
+  - fireInterval `1.9s`.
+- INICIO:
+  - máximo `5` enemigos;
+  - spawn `1.65s`;
+  - termina en `18` kills;
+  - arma inicial nivel `4`.
+- NUDO:
+  - máximo `6` enemigos;
+  - spawn `1.25s`;
+  - termina en `42` kills;
+  - rota fases `0 -> π/2 -> π -> 3π/2`.
+- No usa Heavy.
+- Checkpoint de Nivel 4 en kill normal `25`.
+- Mejora de cadencia por pickup Canvas en kill normal `26`:
+  - `fireInterval 0.09 -> 0.07`;
+  - arma permanece nivel `4`.
+- Mejora Rocket en kill normal `34`:
+  - `1 -> 2` cohetes por lanzamiento;
+  - usa el mismo asset visual `assets/gif/RocketLauncher.webp`;
+  - el segundo cohete sale `1s` después del primero;
+  - conserva daño, cooldown y comportamiento homing actuales.
+- Boss 4 implementado visualmente con `assets/gif/jefe3.gif`.
+- Boss 3 queda visualmente con `assets/gif/jefe4.gif`.
+- Boss 4 usa:
+
+```text
+y = 180 + 45 sin((2π/600)x) + 25 cos((2π/300)x)
+```
+
+- Boss 4:
+  - HP `1250`;
+  - speed `155`;
+  - láser normal damage `17`;
+  - láser speed `470`;
+  - fireInterval `0.9s`;
+  - identidad visual violeta / azul espectral.
+- Ataque especial Boss 4:
+  - 6 bolas espectrales;
+  - nacen desde el centro del Boss;
+  - telegraph inicial `1.5s`;
+  - se acomodan en línea horizontal sobre el Boss a `125px` sobre su centro;
+  - radio visual `20`;
+  - dejan estela violeta/azul al viajar;
+  - salen una por una cada `0.8s`;
+  - cada bola lee la X actual del tanque justo antes de salir;
+  - luego viaja recta, sin homing infinito.
+- Recuperación Boss 4:
+  - si el tanque baja a `40%` o menos, suelta 1 drop de `40 HP`;
+  - si después baja a `20%` o menos, suelta otro drop de `40 HP`;
+  - ambos triggers son independientes y ocurren una sola vez por combate.
+- Pendiente: prueba completa de gameplay y ajuste fino de balance.
 
 ### Nivel 5 — PENDIENTE
 
@@ -795,6 +854,12 @@ Por políticas del navegador, el audio debe iniciar después de interacción del
 checkpoint = heavy.normalKillTrigger - 1
 ```
 
+- Los niveles sin Heavy pueden definir checkpoint explícito en configuración, como Nivel 4:
+
+```text
+checkpoint.normalKillTrigger = 25
+```
+
 - Al alcanzar ese valor de kills normales, se guarda:
   - nivel actual;
   - kills normales;
@@ -810,7 +875,7 @@ checkpoint = heavy.normalKillTrigger - 1
   - Heavy y mejoras posteriores pendientes nuevamente;
   - enemigos, Boss, proyectiles, drops e impactos temporales limpiados.
 - Si el tanque muere antes de alcanzar el checkpoint, el menú de Game Over conserva solo el reinicio actual.
-- La lógica depende de la configuración `powerUps.heavyMachineGun.normalKillTrigger`, por lo que aplica a niveles futuros con la misma estructura.
+- La lógica depende de configuración (`checkpoint.normalKillTrigger` o `powerUps.heavyMachineGun.normalKillTrigger`), por lo que aplica a niveles futuros sin hardcodear kills.
 
 ---
 
@@ -821,12 +886,11 @@ Siguientes sistemas o niveles se implementarán por tareas separadas:
 1. SFX del sistema de audio.
 2. Balance/prueba final del Nivel 2.
 3. Balance/prueba final del Nivel 3.
-4. Nivel 4.
-5. Boss 4.
-6. Nivel 5.
-7. Boss final y victoria final.
-8. Documento académico.
-9. Preparación de exposición.
+4. Balance/prueba final del Nivel 4.
+5. Nivel 5.
+6. Boss final y victoria final.
+7. Documento académico.
+8. Preparación de exposición.
 
 ---
 

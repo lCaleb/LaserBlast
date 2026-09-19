@@ -47,6 +47,7 @@ const TANK_START_Y = 550;
 const TANK_MAX_HP = 100;
 const STARTING_WEAPON_LEVEL = 1;
 const PROJECTILE_FIRE_INTERVAL = 0.09;
+const PROJECTILE_FIRE_INTERVAL_UPGRADED = 0.07;
 const ROCKET_COOLDOWN = 3;
 const ROCKET_SPEED = 390;
 const ROCKET_TURN_RATE = 3.2;
@@ -57,6 +58,7 @@ const ROCKET_SMOKE_DURATION = 0.42;
 const ROCKET_SMOKE_EMIT_INTERVAL = 0.035;
 const ROCKET_SMOKE_MAX_PARTICLES = 48;
 const ROCKET_HUD_SIZE = 62;
+const ROCKET_MULTI_LAUNCH_INTERVAL = 0.5;
 const ROCKET_EXPLOSION_DURATION = 0.38;
 const ROCKET_EXPLOSION_RADIUS = 42;
 const ROCKET_EXPLOSION_PARTICLES = 18;
@@ -386,10 +388,10 @@ const LEVEL_CONFIG = {
       },
     },
     boss: {
-      asset: "assets/gif/jefe3.gif",
+      asset: "assets/gif/jefe4.gif",
       label: "Boss 3",
-      width: 163,
-      height: 121,
+      width: 260,
+      height: 195,
       visualOffsetX: 0,
       visualOffsetY: 0,
       maxHp: 950,
@@ -432,15 +434,15 @@ const LEVEL_CONFIG = {
       playerHealthDropOnHpRatio: 0.3,
       healthDropHealAmount: 40,
       projectileHitbox: {
-        insetX: 16,
-        topOffset: -38,
-        bottomOffset: 20,
+        insetX: 26,
+        topOffset: -62,
+        bottomOffset: 34,
       },
       deathExplosion: {
         asset: TANK_DEATH_EXPLOSION_ASSET,
         duration: TANK_DEATH_EXPLOSION_DURATION,
-        width: 320,
-        height: 397,
+        width: 380,
+        height: 470,
       },
     },
     powerUps: {
@@ -508,7 +510,174 @@ const LEVEL_CONFIG = {
       },
     },
   },
-  4: { normalEnemy: { hp: 60 } },
+  4: {
+    enabled: true,
+    start: {
+      stage: STAGES.INICIO,
+      tankX: TANK_START_X,
+      tankY: TANK_START_Y,
+      tankHp: TANK_MAX_HP,
+      weaponLevel: 4,
+      projectileFireInterval: PROJECTILE_FIRE_INTERVAL,
+      rocketLauncher: {
+        enabled: true,
+        rockets: 1,
+        rocketDamage: 12,
+        cooldown: ROCKET_COOLDOWN,
+      },
+    },
+    normalEnemy: {
+      hp: 58,
+      lanes: [85, 170, 255],
+      trajectory: {
+        amplitude: 42,
+        period: 560,
+      },
+      laser: {
+        speed: 390,
+        fireInterval: 1.9,
+        damage: 9,
+      },
+    },
+    boss: {
+      asset: "assets/gif/jefe3.gif",
+      label: "Boss 4",
+      width: 260,
+      height: 193,
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      maxHp: 1250,
+      speed: 155,
+      initialDirection: -1,
+      trajectory: {
+        type: "sinCos",
+        midline: 180,
+        sinAmplitude: 45,
+        sinPeriod: 600,
+        cosAmplitude: 25,
+        cosPeriod: 300,
+      },
+      laser: {
+        speed: 470,
+        fireInterval: 0.9,
+        damage: 17,
+        length: 58,
+        lineWidth: 7,
+        type: "boss",
+        colors: {
+          fade: "rgba(110, 76, 255, 0)",
+          core: "rgba(128, 92, 255, 0.86)",
+          tip: "rgba(218, 235, 255, 1)",
+          glowOuter: "rgba(68, 120, 255, 0.28)",
+          glowInner: "rgba(162, 98, 255, 0.62)",
+        },
+      },
+      attackPattern: {
+        sequence: [1, 2, 1, 2],
+        doubleSpreadDegrees: 10,
+      },
+      specialAttack: {
+        type: "spectralLine",
+        interval: 4.5,
+        telegraphDuration: 1.5,
+        projectileCount: 6,
+        shotInterval: 0.8,
+        lineWidth: 360,
+        lineOffsetY: -125,
+        speed: 360,
+      },
+      playerHealthDrops: [
+        { hpRatio: 0.4, healAmount: 40 },
+        { hpRatio: 0.2, healAmount: 40 },
+      ],
+      projectileHitbox: {
+        insetX: 26,
+        topOffset: -62,
+        bottomOffset: 36,
+      },
+      deathExplosion: {
+        asset: TANK_DEATH_EXPLOSION_ASSET,
+        duration: TANK_DEATH_EXPLOSION_DURATION,
+        width: 330,
+        height: 410,
+      },
+    },
+    powerUps: {
+      cadenceCore: {
+        normalKillTrigger: 26,
+        fireInterval: PROJECTILE_FIRE_INTERVAL_UPGRADED,
+        width: 52,
+        height: 52,
+        spawnX: 600,
+        spawnY: 80,
+        fallSpeed: 138,
+        groundAvailableTime: 8,
+        enabled: true,
+      },
+      rocketUpgrade: {
+        asset: "assets/gif/RocketLauncher.webp",
+        normalKillTrigger: 34,
+        rockets: 2,
+        rocketDamage: 12,
+        width: 76,
+        height: 76,
+        spawnX: 600,
+        spawnY: 80,
+        fallSpeed: 145,
+        groundAvailableTime: 8,
+        cooldown: ROCKET_COOLDOWN,
+        launchInterval: ROCKET_MULTI_LAUNCH_INTERVAL,
+        enabled: true,
+      },
+    },
+    checkpoint: {
+      normalKillTrigger: 25,
+    },
+    drops: {
+      health: {
+        dropChance: 0.18,
+        healAmount: 25,
+        width: 42,
+        height: 42,
+        fallSpeed: 125,
+        groundAvailableTime: 7,
+        pulseScale: 0.14,
+        pulseSpeed: 5.5,
+      },
+    },
+    stages: {
+      [STAGES.INICIO]: {
+        maxNormalEnemies: 5,
+        spawnInterval: 1.65,
+        normalKillTarget: 18,
+        spawnsNormalEnemies: true,
+        normalTrajectoryVariants: [
+          { type: "sin", amplitude: 42, period: 560, phase: 0 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI / 2 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI },
+          { type: "sin", amplitude: 42, period: 560, phase: 3 * Math.PI / 2 },
+        ],
+      },
+      [STAGES.NUDO]: {
+        maxNormalEnemies: 6,
+        spawnInterval: 1.25,
+        normalKillTarget: 42,
+        spawnsNormalEnemies: true,
+        normalTrajectoryVariants: [
+          { type: "sin", amplitude: 42, period: 560, phase: 0 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI / 2 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI },
+          { type: "sin", amplitude: 42, period: 560, phase: 3 * Math.PI / 2 },
+        ],
+      },
+      [STAGES.BOSS]: {
+        maxNormalEnemies: 0,
+        spawnInterval: null,
+        normalKillTarget: null,
+        spawnsNormalEnemies: false,
+      },
+    },
+  },
   5: { normalEnemy: { hp: 70 } },
 };
 
@@ -541,6 +710,16 @@ const DEBUG_PRESENTATION_CONFIG = {
       [STAGES.NUDO]: 21,
     },
   },
+  4: {
+    weaponLevelByStage: {
+      [STAGES.INICIO]: 4,
+      [STAGES.NUDO]: 4,
+      [STAGES.BOSS]: 4,
+    },
+    normalEnemiesDestroyedByStage: {
+      [STAGES.NUDO]: 25,
+    },
+  },
 };
 
 let currentLevel = 1;
@@ -559,6 +738,7 @@ const checkpointState = {
   score: 0,
   stage: STAGES.INICIO,
   weaponLevel: STARTING_WEAPON_LEVEL,
+  weaponFireInterval: PROJECTILE_FIRE_INTERVAL,
 };
 
 const debug = {
@@ -652,6 +832,7 @@ musicManager.setup();
 const weapon = {
   level: STARTING_WEAPON_LEVEL,
   projectileDamage: 2,
+  fireInterval: PROJECTILE_FIRE_INTERVAL,
   muzzlePoints: [
     { id: 1, offsetX: -8, offsetY: -50 },
     { id: 2, offsetX: 15, offsetY: -50 },
@@ -763,7 +944,7 @@ const projectileManager = {
     this.fireCooldown = Math.max(0, this.fireCooldown - deltaSeconds);
     if (input.fire && this.fireCooldown <= 0) {
       this.fire();
-      this.fireCooldown = PROJECTILE_FIRE_INTERVAL;
+      this.fireCooldown = weapon.fireInterval;
     }
 
     this.projectiles.forEach((projectile) => {
@@ -808,6 +989,8 @@ const rocketManager = {
   missileDamage: 0,
   cooldownDuration: ROCKET_COOLDOWN,
   cooldown: 0,
+  launchInterval: 0,
+  pendingLaunches: [],
   missiles: [],
   smokeParticles: [],
   nextId: 1,
@@ -819,18 +1002,18 @@ const rocketManager = {
     this.missileCount = config.rockets;
     this.missileDamage = config.rocketDamage;
     this.cooldownDuration = config.cooldown ?? ROCKET_COOLDOWN;
+    this.launchInterval = config.launchInterval ?? 0;
     this.cooldown = 0;
   },
 
   tryFire() {
     if (!isGameplayActive() || !this.unlocked || this.cooldown > 0) return false;
 
-    const tankCenter = getTankCenter();
-    const spreadStep = this.missileCount > 1 ? 0.16 : 0;
-    const startOffset = -spreadStep * (this.missileCount - 1) / 2;
-
     for (let index = 0; index < this.missileCount; index += 1) {
-      this.createMissile(tankCenter.x, tankCenter.y, -Math.PI / 2 + startOffset + spreadStep * index);
+      this.pendingLaunches.push({
+        delay: this.launchInterval * index,
+        angle: -Math.PI / 2,
+      });
     }
 
     this.cooldown = this.cooldownDuration;
@@ -856,6 +1039,7 @@ const rocketManager = {
   update(deltaSeconds) {
     this.cooldown = Math.max(0, this.cooldown - deltaSeconds);
     if (input.fire && this.cooldown <= 0) this.tryFire();
+    this.updatePendingLaunches(deltaSeconds);
 
     for (let index = this.missiles.length - 1; index >= 0; index -= 1) {
       const missile = this.missiles[index];
@@ -896,6 +1080,18 @@ const rocketManager = {
     }
 
     this.updateSmoke(deltaSeconds);
+  },
+
+  updatePendingLaunches(deltaSeconds) {
+    for (let index = this.pendingLaunches.length - 1; index >= 0; index -= 1) {
+      const launch = this.pendingLaunches[index];
+      launch.delay -= deltaSeconds;
+      if (launch.delay > 0) continue;
+
+      const tankCenter = getTankCenter();
+      this.createMissile(tankCenter.x, tankCenter.y, launch.angle);
+      this.pendingLaunches.splice(index, 1);
+    }
   },
 
   acquireTarget(missile) {
@@ -1018,6 +1214,8 @@ const rocketManager = {
     this.missileDamage = 0;
     this.cooldownDuration = ROCKET_COOLDOWN;
     this.cooldown = 0;
+    this.launchInterval = 0;
+    this.pendingLaunches = [];
     this.missiles = [];
     this.smokeParticles = [];
     this.nextId = 1;
@@ -1411,12 +1609,26 @@ const powerUpManager = {
     collected: false,
     active: null,
   },
+  cadenceCore: {
+    generated: false,
+    collected: false,
+    active: null,
+  },
+  rocketUpgrade: {
+    generated: false,
+    collected: false,
+    active: null,
+  },
 
   update(deltaSeconds) {
     this.trySpawnHeavyMachineGun();
     this.trySpawnRocketLauncher();
+    this.trySpawnCadenceCore();
+    this.trySpawnRocketUpgrade();
     this.updateHeavyMachineGun(deltaSeconds);
     this.updateRocketLauncher(deltaSeconds);
+    this.updateCadenceCore(deltaSeconds);
+    this.updateRocketUpgrade(deltaSeconds);
   },
 
   trySpawnHeavyMachineGun() {
@@ -1561,6 +1773,119 @@ const powerUpManager = {
     this.rocketLauncher.active = null;
   },
 
+  trySpawnCadenceCore() {
+    const state = this.cadenceCore;
+    const config = getCurrentCadenceCoreConfig();
+
+    if (state.generated || !config?.enabled) return;
+    if (gameState.normalEnemiesDestroyed < config.normalKillTrigger) return;
+
+    this.cadenceCore.generated = true;
+    this.cadenceCore.active = this.createCanvasPowerUp(config, "cadenceCore");
+  },
+
+  updateCadenceCore(deltaSeconds) {
+    const powerUp = this.cadenceCore.active;
+    if (!powerUp) return;
+
+    this.updateCanvasPowerUp(powerUp, deltaSeconds, () => this.removeCadenceCore());
+    if (isPowerUpCollidingWithTank(powerUp)) this.collectCadenceCore();
+  },
+
+  collectCadenceCore() {
+    const config = getCurrentCadenceCoreConfig();
+    if (config?.fireInterval) weapon.fireInterval = config.fireInterval;
+    this.cadenceCore.collected = true;
+    this.removeCadenceCore();
+  },
+
+  removeCadenceCore() {
+    this.cadenceCore.active = null;
+  },
+
+  trySpawnRocketUpgrade() {
+    const state = this.rocketUpgrade;
+    const config = getCurrentRocketUpgradeConfig();
+
+    if (state.generated || !config?.enabled) return;
+    if (gameState.normalEnemiesDestroyed < config.normalKillTrigger) return;
+
+    this.rocketUpgrade.generated = true;
+    this.rocketUpgrade.active = this.createImagePowerUp(config, "Rocket Launcher x2");
+  },
+
+  updateRocketUpgrade(deltaSeconds) {
+    const powerUp = this.rocketUpgrade.active;
+    if (!powerUp) return;
+
+    this.updateCanvasPowerUp(powerUp, deltaSeconds, () => this.removeRocketUpgrade());
+    if (isPowerUpCollidingWithTank(powerUp)) this.collectRocketUpgrade();
+  },
+
+  collectRocketUpgrade() {
+    const config = getCurrentRocketUpgradeConfig();
+    this.rocketUpgrade.collected = true;
+    rocketManager.unlock(config);
+    this.removeRocketUpgrade();
+  },
+
+  removeRocketUpgrade() {
+    if (this.rocketUpgrade.active?.sprite) this.rocketUpgrade.active.sprite.remove();
+    this.rocketUpgrade.active = null;
+  },
+
+  createImagePowerUp(config, alt) {
+    const sprite = document.createElement("img");
+    const powerUp = {
+      sprite,
+      x: config.spawnX,
+      y: config.spawnY,
+      width: config.width,
+      height: config.height,
+      fallSpeed: config.fallSpeed,
+      groundAvailableTime: config.groundAvailableTime,
+      grounded: false,
+    };
+
+    sprite.className = "game-sprite";
+    sprite.src = config.asset;
+    sprite.alt = alt;
+    stage.appendChild(sprite);
+
+    return powerUp;
+  },
+
+  createCanvasPowerUp(config, type) {
+    return {
+      type,
+      x: config.spawnX,
+      y: config.spawnY,
+      width: config.width,
+      height: config.height,
+      fallSpeed: config.fallSpeed,
+      groundAvailableTime: config.groundAvailableTime,
+      grounded: false,
+      pulseTime: 0,
+    };
+  },
+
+  updateCanvasPowerUp(powerUp, deltaSeconds, onExpired) {
+    powerUp.pulseTime += deltaSeconds;
+
+    if (!powerUp.grounded) {
+      powerUp.y += powerUp.fallSpeed * deltaSeconds;
+      const groundY = getTankGroundY() - powerUp.height / 2;
+      if (powerUp.y >= groundY) {
+        powerUp.y = groundY;
+        powerUp.grounded = true;
+      }
+      return;
+    }
+
+    powerUp.groundAvailableTime -= deltaSeconds;
+    if (powerUp.groundAvailableTime <= 0) onExpired();
+  },
+
   clear() {
     this.removeHeavyMachineGun();
     this.heavyMachineGun.generated = false;
@@ -1568,6 +1893,12 @@ const powerUpManager = {
     this.removeRocketLauncher();
     this.rocketLauncher.generated = false;
     this.rocketLauncher.collected = false;
+    this.removeCadenceCore();
+    this.cadenceCore.generated = false;
+    this.cadenceCore.collected = false;
+    this.removeRocketUpgrade();
+    this.rocketUpgrade.generated = false;
+    this.rocketUpgrade.collected = false;
   },
 };
 
@@ -1745,8 +2076,10 @@ const enemyManager = {
       midline,
       trajectory: {
         ...typeConfig.trajectory,
+        type: trajectoryConfig.type ?? typeConfig.trajectory.type,
         amplitude: trajectoryConfig.amplitude,
         period: trajectoryConfig.period,
+        phase: trajectoryConfig.phase ?? 0,
         midline,
       },
     };
@@ -1842,8 +2175,10 @@ const bossManager = {
       specialAttackCooldown: config.specialAttack?.interval ?? null,
       specialTelegraphRemaining: 0,
       specialTelegraphDuration: config.specialAttack?.telegraphDuration ?? 0,
+      spectralAttack: null,
       healthDropReleased: false,
       playerLowHealthDropReleased: false,
+      playerHealthDropsReleased: (config.playerHealthDrops ?? []).map(() => false),
       trajectory: { ...config.trajectory },
       projectileHitbox: { ...config.projectileHitbox },
     };
@@ -1878,6 +2213,10 @@ const bossManager = {
     const config = getCurrentBossConfig();
     const specialConfig = config.specialAttack;
     if (!specialConfig) return;
+    if (specialConfig.type === "spectralLine") {
+      this.updateBossSpectralAttack(boss, config, specialConfig, deltaSeconds);
+      return;
+    }
 
     if (boss.specialTelegraphRemaining > 0) {
       boss.specialTelegraphRemaining = Math.max(0, boss.specialTelegraphRemaining - deltaSeconds);
@@ -1893,6 +2232,146 @@ const bossManager = {
 
     boss.specialTelegraphDuration = specialConfig.telegraphDuration;
     boss.specialTelegraphRemaining = specialConfig.telegraphDuration;
+  },
+
+  updateBossSpectralAttack(boss, config, specialConfig, deltaSeconds) {
+    this.updateSpectralBalls(boss, deltaSeconds);
+
+    if (boss.spectralAttack) {
+      this.updateSpectralLinePositions(boss, specialConfig, deltaSeconds);
+      return;
+    }
+
+    boss.specialAttackCooldown -= deltaSeconds;
+    if (boss.specialAttackCooldown > 0) return;
+
+    this.startBossSpectralAttack(boss, config, specialConfig);
+  },
+
+  startBossSpectralAttack(boss, config, specialConfig) {
+    boss.specialTelegraphDuration = specialConfig.telegraphDuration;
+    boss.specialTelegraphRemaining = specialConfig.telegraphDuration;
+    boss.spectralAttack = {
+      state: "forming",
+      formTime: 0,
+      shotCooldown: 0,
+      nextShotIndex: 0,
+      balls: Array.from({ length: specialConfig.projectileCount }, (_, index) => ({
+        id: index + 1,
+        state: "forming",
+        x: boss.x,
+        y: boss.y,
+        vx: 0,
+        vy: 0,
+        radius: 20,
+        damage: specialConfig.damage ?? config.laser.damage,
+        targetX: null,
+        trail: [],
+      })),
+    };
+  },
+
+  updateSpectralLinePositions(boss, specialConfig, deltaSeconds) {
+    const attack = boss.spectralAttack;
+    if (!attack) return;
+
+    if (attack.state === "forming") {
+      attack.formTime = Math.min(specialConfig.telegraphDuration, attack.formTime + deltaSeconds);
+      boss.specialTelegraphRemaining = Math.max(0, specialConfig.telegraphDuration - attack.formTime);
+      const progress = specialConfig.telegraphDuration > 0 ? attack.formTime / specialConfig.telegraphDuration : 1;
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      this.positionPendingSpectralBalls(boss, specialConfig, easedProgress);
+
+      if (progress >= 1) {
+        attack.state = "firing";
+        attack.shotCooldown = 0;
+        boss.specialTelegraphRemaining = 0;
+      }
+      return;
+    }
+
+    this.positionPendingSpectralBalls(boss, specialConfig, 1);
+    attack.shotCooldown -= deltaSeconds;
+    if (attack.nextShotIndex < attack.balls.length && attack.shotCooldown <= 0) {
+      this.fireNextSpectralBall(boss, specialConfig);
+      attack.shotCooldown = specialConfig.shotInterval;
+    }
+
+    const hasPendingBalls = attack.balls.some((ball) => ball.state !== "expired");
+    if (!hasPendingBalls) {
+      boss.spectralAttack = null;
+      boss.specialAttackCooldown = specialConfig.interval;
+    }
+  },
+
+  positionPendingSpectralBalls(boss, specialConfig, progress) {
+    const attack = boss.spectralAttack;
+    if (!attack) return;
+
+    const count = specialConfig.projectileCount;
+    const startX = boss.x - specialConfig.lineWidth / 2;
+    const spacing = count <= 1 ? 0 : specialConfig.lineWidth / (count - 1);
+    const lineY = boss.y + specialConfig.lineOffsetY;
+
+    attack.balls.forEach((ball, index) => {
+      if (ball.state === "fired" || ball.state === "expired") return;
+
+      const targetX = startX + spacing * index;
+      ball.x = boss.x + (targetX - boss.x) * progress;
+      ball.y = boss.y + (lineY - boss.y) * progress;
+      ball.state = progress >= 1 ? "ready" : "forming";
+    });
+  },
+
+  fireNextSpectralBall(boss, specialConfig) {
+    const attack = boss.spectralAttack;
+    if (!attack) return;
+
+    const ball = attack.balls[attack.nextShotIndex];
+    if (!ball) return;
+
+    const targetX = tank.x + tank.width / 2;
+    const targetY = tank.y + tank.height / 2;
+    const theta = Math.atan2(targetY - ball.y, targetX - ball.x);
+    ball.vx = Math.cos(theta) * specialConfig.speed;
+    ball.vy = Math.sin(theta) * specialConfig.speed;
+    ball.targetX = targetX;
+    ball.state = "fired";
+    attack.nextShotIndex += 1;
+
+    this.lastShot = {
+      attackNumber: this.attackCounter,
+      attackType: "ESPECTRAL",
+      shots: [{ theta, vx: ball.vx, vy: ball.vy }],
+      theta,
+      vx: ball.vx,
+      vy: ball.vy,
+    };
+  },
+
+  updateSpectralBalls(boss, deltaSeconds) {
+    const attack = boss.spectralAttack;
+    if (!attack) return;
+
+    attack.balls.forEach((ball) => {
+      if (ball.state !== "fired") return;
+
+      ball.trail.push({ x: ball.x, y: ball.y });
+      if (ball.trail.length > 16) ball.trail.shift();
+
+      ball.x += ball.vx * deltaSeconds;
+      ball.y += ball.vy * deltaSeconds;
+
+      if (isSpectralBallCollidingWithTank(ball)) {
+        ball.state = "expired";
+        damageTank(ball.damage);
+        return;
+      }
+
+      if (hasSpectralBallExited(ball)) {
+        ball.state = "expired";
+      }
+    });
   },
 
   updateBossFire(boss, deltaSeconds) {
@@ -2005,8 +2484,24 @@ const bossManager = {
     if (!boss || this.defeated || boss.deathProcessed) return;
 
     const config = getCurrentBossConfig();
-    const hpRatioTrigger = config.playerHealthDropOnHpRatio;
     const healthConfig = getCurrentHealthDropConfig();
+    if (!healthConfig) return;
+
+    if (config.playerHealthDrops?.length) {
+      config.playerHealthDrops.forEach((dropConfig, index) => {
+        if (boss.playerHealthDropsReleased[index]) return;
+        if (tank.hp > tank.maxHp * dropConfig.hpRatio) return;
+
+        boss.playerHealthDropsReleased[index] = true;
+        healthDropManager.createDrop(tank.x + tank.width / 2, 80, {
+          ...healthConfig,
+          healAmount: dropConfig.healAmount ?? healthConfig.healAmount,
+        });
+      });
+      return;
+    }
+
+    const hpRatioTrigger = config.playerHealthDropOnHpRatio;
     if (!hpRatioTrigger || !healthConfig || boss.playerLowHealthDropReleased) return;
     if (tank.hp > tank.maxHp * hpRatioTrigger) return;
 
@@ -2132,6 +2627,14 @@ function getCurrentHeavyMachineGunConfig() {
 
 function getCurrentRocketLauncherConfig() {
   return getCurrentLevelConfig().powerUps?.rocketLauncher ?? null;
+}
+
+function getCurrentCadenceCoreConfig() {
+  return getCurrentLevelConfig().powerUps?.cadenceCore ?? null;
+}
+
+function getCurrentRocketUpgradeConfig() {
+  return getCurrentLevelConfig().powerUps?.rocketUpgrade ?? null;
 }
 
 function getCurrentHealthDropConfig() {
@@ -2278,9 +2781,13 @@ function resetCheckpointState() {
   checkpointState.score = 0;
   checkpointState.stage = STAGES.INICIO;
   checkpointState.weaponLevel = STARTING_WEAPON_LEVEL;
+  checkpointState.weaponFireInterval = PROJECTILE_FIRE_INTERVAL;
 }
 
 function getLevelHeavyCheckpointKill(level = currentLevel) {
+  const configuredCheckpoint = LEVEL_CONFIG[level]?.checkpoint?.normalKillTrigger;
+  if (Number.isFinite(configuredCheckpoint)) return configuredCheckpoint;
+
   const heavyConfig = LEVEL_CONFIG[level]?.powerUps?.heavyMachineGun;
   if (!heavyConfig || !Number.isFinite(heavyConfig.normalKillTrigger)) return null;
   return Math.max(0, heavyConfig.normalKillTrigger - 1);
@@ -2311,6 +2818,7 @@ function trySaveLevelCheckpoint() {
   checkpointState.score = gameState.score;
   checkpointState.stage = getStageForNormalKillCount(currentLevel, checkpointKill);
   checkpointState.weaponLevel = weapon.level;
+  checkpointState.weaponFireInterval = weapon.fireInterval;
 }
 
 function canRestoreLevelCheckpoint() {
@@ -2341,6 +2849,8 @@ function restoreLevelCheckpoint() {
   tank.visible = true;
 
   weapon.level = checkpoint.weaponLevel;
+  weapon.fireInterval = checkpoint.weaponFireInterval;
+  applyStartingRocketLauncherState();
   enemyManager.spawnTimer = 0;
   hideAllOverlays();
   musicManager.playStage(gameState.stage, { restart: true });
@@ -2434,7 +2944,21 @@ function resetCurrentLevelState({ resetScore = true } = {}) {
   tank.visible = true;
 
   weapon.level = startConfig.weaponLevel;
+  weapon.fireInterval = startConfig.projectileFireInterval ?? PROJECTILE_FIRE_INTERVAL;
+  applyStartingRocketLauncherState();
   enemyManager.spawnTimer = 0;
+}
+
+function applyStartingRocketLauncherState() {
+  const startRocketConfig = getCurrentLevelStartConfig().rocketLauncher;
+  if (!startRocketConfig?.enabled) return;
+
+  rocketManager.unlock({
+    enabled: true,
+    rockets: startRocketConfig.rockets,
+    rocketDamage: startRocketConfig.rocketDamage,
+    cooldown: startRocketConfig.cooldown,
+  });
 }
 
 function restartCurrentLevel() {
@@ -2539,9 +3063,13 @@ function applyDebugPresentationStage(stageName) {
   tank.visible = true;
 
   weapon.level = config.weaponLevel;
+  weapon.fireInterval = LEVEL_CONFIG[currentLevel].start.projectileFireInterval ?? PROJECTILE_FIRE_INTERVAL;
+  applyStartingRocketLauncherState();
   enemyManager.spawnTimer = 0;
   configureDebugPresentationHeavyState(config);
   configureDebugPresentationRocketState(config);
+  configureDebugPresentationCadenceState(config);
+  configureDebugPresentationRocketUpgradeState(config);
 
   if (config.stage === STAGES.BOSS) {
     bossManager.tryCreateBoss();
@@ -2569,6 +3097,28 @@ function configureDebugPresentationRocketState(config) {
   powerUpManager.rocketLauncher.active = null;
 
   if (rocketWasAvailable) rocketManager.unlock(rocketConfig);
+}
+
+function configureDebugPresentationCadenceState(config) {
+  const cadenceConfig = LEVEL_CONFIG[config.level].powerUps?.cadenceCore;
+  const cadenceWasAvailable = Boolean(cadenceConfig?.enabled && config.normalEnemiesDestroyed >= cadenceConfig.normalKillTrigger);
+
+  powerUpManager.cadenceCore.generated = cadenceWasAvailable;
+  powerUpManager.cadenceCore.collected = cadenceWasAvailable;
+  powerUpManager.cadenceCore.active = null;
+
+  if (cadenceWasAvailable) weapon.fireInterval = cadenceConfig.fireInterval;
+}
+
+function configureDebugPresentationRocketUpgradeState(config) {
+  const rocketUpgradeConfig = LEVEL_CONFIG[config.level].powerUps?.rocketUpgrade;
+  const rocketUpgradeWasAvailable = Boolean(rocketUpgradeConfig?.enabled && config.normalEnemiesDestroyed >= rocketUpgradeConfig.normalKillTrigger);
+
+  powerUpManager.rocketUpgrade.generated = rocketUpgradeWasAvailable;
+  powerUpManager.rocketUpgrade.collected = rocketUpgradeWasAvailable;
+  powerUpManager.rocketUpgrade.active = null;
+
+  if (rocketUpgradeWasAvailable) rocketManager.unlock(rocketUpgradeConfig);
 }
 
 function restartCurrentLevelFromDebug() {
@@ -2684,8 +3234,19 @@ function getActiveMuzzlePoints() {
 }
 
 function calculateTrajectoryY(entity, x) {
+  if (entity.trajectory.type === "sinCos") {
+    const sinAngle = (2 * Math.PI / entity.trajectory.sinPeriod) * x + (entity.trajectory.sinPhase ?? 0);
+    const cosAngle = (2 * Math.PI / entity.trajectory.cosPeriod) * x + (entity.trajectory.cosPhase ?? 0);
+    return (
+      entity.trajectory.midline +
+      entity.trajectory.sinAmplitude * Math.sin(sinAngle) +
+      entity.trajectory.cosAmplitude * Math.cos(cosAngle)
+    );
+  }
+
   const angle = (2 * Math.PI / entity.trajectory.period) * x;
-  const wave = entity.trajectory.type === "cos" ? Math.cos(angle) : Math.sin(angle);
+  const phase = entity.trajectory.phase ?? 0;
+  const wave = entity.trajectory.type === "cos" ? Math.cos(angle + phase) : Math.sin(angle + phase);
   return entity.trajectory.midline + entity.trajectory.amplitude * wave;
 }
 
@@ -2775,6 +3336,8 @@ function registerNormalEnemyDestroyed(enemy) {
   trySaveLevelCheckpoint();
   powerUpManager.trySpawnHeavyMachineGun();
   powerUpManager.trySpawnRocketLauncher();
+  powerUpManager.trySpawnCadenceCore();
+  powerUpManager.trySpawnRocketUpgrade();
   evaluateStageProgression();
 }
 
@@ -2797,6 +3360,7 @@ function enterStage(stageName) {
 
   gameState.stage = stageName;
   enemyManager.spawnTimer = getCurrentStageConfig().spawnInterval ?? 0;
+  if (currentLevel === 4 && stageName === STAGES.NUDO) enemyManager.nextTrajectoryVariantIndex = 0;
 
   if (stageName === STAGES.BOSS) {
     bossManager.tryCreateBoss();
@@ -2882,6 +3446,30 @@ function isCircleOverlappingTarget(x, y, radius, target) {
   const dx = x - closestX;
   const dy = y - closestY;
   return dx * dx + dy * dy <= radius * radius;
+}
+
+function isSpectralBallCollidingWithTank(ball) {
+  const tankRect = {
+    left: tank.x,
+    right: tank.x + tank.width,
+    top: tank.y,
+    bottom: tank.y + tank.height,
+  };
+  const closestX = Math.max(tankRect.left, Math.min(ball.x, tankRect.right));
+  const closestY = Math.max(tankRect.top, Math.min(ball.y, tankRect.bottom));
+  const dx = ball.x - closestX;
+  const dy = ball.y - closestY;
+  return dx * dx + dy * dy <= ball.radius * ball.radius;
+}
+
+function hasSpectralBallExited(ball) {
+  const margin = ball.radius * 4;
+  return (
+    ball.x < -margin ||
+    ball.x > LOGICAL_WIDTH + margin ||
+    ball.y < -margin ||
+    ball.y > LOGICAL_HEIGHT + margin
+  );
 }
 
 function isPowerUpCollidingWithTank(powerUp) {
@@ -3051,19 +3639,41 @@ function hasLaserExited(laser) {
 }
 
 function getTrajectoryEquation(trajectory) {
+  if (trajectory.type === "sinCos") {
+    return `y = ${trajectory.midline} + ${trajectory.sinAmplitude} * Math.sin((2 * Math.PI / ${trajectory.sinPeriod}) * x) + ${trajectory.cosAmplitude} * Math.cos((2 * Math.PI / ${trajectory.cosPeriod}) * x)`;
+  }
+
   const waveFunction = trajectory.type === "cos" ? "Math.cos" : "Math.sin";
-  return `y = ${trajectory.midline} + ${trajectory.amplitude} * ${waveFunction}((2 * Math.PI / ${trajectory.period}) * x)`;
+  const phase = trajectory.phase ? ` + ${formatPhaseValue(trajectory.phase)}` : "";
+  return `y = ${trajectory.midline} + ${trajectory.amplitude} * ${waveFunction}((2 * Math.PI / ${trajectory.period}) * x${phase})`;
+}
+
+function formatPhaseValue(phase) {
+  if (!phase) return "0";
+  if (phase === Math.PI / 2) return "Math.PI / 2";
+  if (phase === Math.PI) return "Math.PI";
+  if (phase === 3 * Math.PI / 2) return "3 * Math.PI / 2";
+  return phase.toFixed(2);
+}
+
+function getTrajectoryDebugParams(trajectory) {
+  if (trajectory.type === "sinCos") {
+    return `D=${trajectory.midline} | As=${trajectory.sinAmplitude} Ts=${trajectory.sinPeriod} | Ac=${trajectory.cosAmplitude} Tc=${trajectory.cosPeriod}`;
+  }
+
+  return `A=${trajectory.amplitude} | D=${trajectory.midline} | Periodo=${trajectory.period} | Fase=${formatPhaseValue(trajectory.phase ?? 0)}`;
 }
 
 function getActiveTrajectoryConfigs() {
   const configs = new Map();
 
   enemyManager.enemies.forEach((enemy) => {
-    const key = `${enemy.typeKey}-${enemy.midline}`;
+    const phase = enemy.trajectory.phase ?? 0;
+    const key = `${enemy.typeKey}-${enemy.midline}-${phase}`;
     if (configs.has(key)) return;
     configs.set(key, {
       color: enemy.color,
-      label: `${enemy.trajectory.type} carril ${enemy.midline}`,
+      label: `${enemy.trajectory.type} carril ${enemy.midline} fase ${formatPhaseValue(phase)}`,
       trajectory: enemy.trajectory,
     });
   });
@@ -3174,10 +3784,10 @@ function drawDebug() {
     drawDebugText(`HP Boss: ${boss ? `${boss.hp}/${boss.maxHp}` : "n/a"}`, panelX + 250, panelY);
     panelY += 20;
     drawDebugText(`Boss drop vida: ${boss ? boss.healthDropReleased : "n/a"}`, panelX, panelY);
-    drawDebugText(`Drop vida tanque bajo: ${boss ? boss.playerLowHealthDropReleased : "n/a"}`, panelX + 250, panelY);
+    drawDebugText(`Drops tanque bajo: ${formatBossPlayerHealthDropsDebug(boss)}`, panelX + 250, panelY);
     panelY += 20;
     drawDebugText(`Boss funcion: ${bossTrajectory.type}`, panelX, panelY);
-    drawDebugText(`D=${bossTrajectory.midline} | A=${bossTrajectory.amplitude} | T=${bossTrajectory.period}`, panelX + 250, panelY);
+    drawDebugText(getTrajectoryDebugParams(bossTrajectory), panelX + 250, panelY);
     panelY += 20;
     drawDebugText(`Boss ecuacion: ${getTrajectoryEquation(bossTrajectory)}`, panelX, panelY);
     panelY += 20;
@@ -3187,7 +3797,7 @@ function drawDebug() {
     drawDebugText(`Proximo ataque: ${getBossNextAttackType()}`, panelX + 250, panelY);
     panelY += 20;
     drawDebugText(`Especial Boss: ${getBossSpecialDebugState()}`, panelX, panelY);
-    drawDebugText(`Fan angulos: ${formatBossSpecialFanAngles()}`, panelX + 250, panelY);
+    drawDebugText(`Especial datos: ${formatBossSpecialFanAngles()}`, panelX + 250, panelY);
     panelY += 20;
     drawDebugText(`Spread doble: ${bossConfig.attackPattern.doubleSpreadDegrees} grados`, panelX, panelY);
     panelY += 20;
@@ -3200,11 +3810,7 @@ function drawDebug() {
   getActiveTrajectoryConfigs().forEach((trajectoryConfig) => {
     context.fillStyle = trajectoryConfig.color;
     drawDebugText(`${trajectoryConfig.label}: ${getTrajectoryEquation(trajectoryConfig.trajectory)}`, panelX, panelY);
-    drawDebugText(
-      `A = ${trajectoryConfig.trajectory.amplitude} | D = ${trajectoryConfig.trajectory.midline} | Periodo = ${trajectoryConfig.trajectory.period}`,
-      panelX,
-      panelY + 20,
-    );
+    drawDebugText(getTrajectoryDebugParams(trajectoryConfig.trajectory), panelX, panelY + 20);
     panelY += 44;
   });
 
@@ -3390,7 +3996,7 @@ function drawRocketHud() {
 
   const size = ROCKET_HUD_SIZE;
   const x = LOGICAL_WIDTH - size - 26;
-  const y = LOGICAL_HEIGHT - size - 24;
+  const y = LOGICAL_HEIGHT - size - 104;
   const centerX = x + size / 2;
   const centerY = y + size / 2;
   const cooldownRatio = rocketManager.cooldownDuration > 0 ? rocketManager.cooldown / rocketManager.cooldownDuration : 0;
@@ -3508,6 +4114,7 @@ function drawBossSpecialTelegraph() {
 
   const specialConfig = getCurrentBossConfig().specialAttack;
   if (!specialConfig) return;
+  if (specialConfig.type !== "fan") return;
 
   const progress = 1 - boss.specialTelegraphRemaining / boss.specialTelegraphDuration;
   const pulse = 0.45 + Math.sin(progress * Math.PI * 6) * 0.18;
@@ -3803,6 +4410,119 @@ function drawHealthDrops() {
   context.restore();
 }
 
+function drawBossSpectralBalls() {
+  const boss = bossManager.boss;
+  const attack = boss?.spectralAttack;
+  if (!boss || !attack) return;
+
+  context.save();
+
+  const readyBalls = attack.balls.filter((ball) => ball.state !== "fired" && ball.state !== "expired");
+  if (readyBalls.length > 1) {
+    context.strokeStyle = "rgba(142, 112, 255, 0.26)";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(readyBalls[0].x, readyBalls[0].y);
+    context.lineTo(readyBalls[readyBalls.length - 1].x, readyBalls[readyBalls.length - 1].y);
+    context.stroke();
+  }
+
+  attack.balls.forEach((ball) => {
+    if (ball.state === "expired") return;
+
+    if (ball.trail?.length) {
+      ball.trail.forEach((point, index) => {
+        const trailRatio = (index + 1) / ball.trail.length;
+        const trailRadius = ball.radius * 0.22 + ball.radius * 0.7 * trailRatio;
+        context.fillStyle = `rgba(125, 96, 255, ${0.08 + trailRatio * 0.28})`;
+        context.beginPath();
+        context.arc(point.x, point.y, trailRadius, 0, 2 * Math.PI);
+        context.fill();
+      });
+    }
+
+    const pulse = ball.state === "fired" ? 1 : 0.92 + Math.sin(performance.now() / 100 + ball.id) * 0.08;
+    const radius = ball.radius * pulse;
+    const glow = context.createRadialGradient(ball.x, ball.y, 0, ball.x, ball.y, radius * 2.2);
+    glow.addColorStop(0, "rgba(235, 248, 255, 0.95)");
+    glow.addColorStop(0.35, "rgba(116, 188, 255, 0.72)");
+    glow.addColorStop(0.75, "rgba(145, 82, 255, 0.26)");
+    glow.addColorStop(1, "rgba(145, 82, 255, 0)");
+
+    context.fillStyle = glow;
+    context.beginPath();
+    context.arc(ball.x, ball.y, radius * 2.2, 0, 2 * Math.PI);
+    context.fill();
+
+    context.fillStyle = ball.state === "fired" ? "rgba(218, 238, 255, 0.96)" : "rgba(196, 224, 255, 0.88)";
+    context.beginPath();
+    context.arc(ball.x, ball.y, radius, 0, 2 * Math.PI);
+    context.fill();
+
+    context.strokeStyle = "rgba(165, 105, 255, 0.92)";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(ball.x, ball.y, radius * 1.25, 0, 2 * Math.PI);
+    context.stroke();
+
+    if (ball.state === "fired") {
+      context.strokeStyle = "rgba(110, 200, 255, 0.32)";
+      context.lineWidth = 5;
+      context.beginPath();
+      context.moveTo(ball.x - ball.vx * 0.045, ball.y - ball.vy * 0.045);
+      context.lineTo(ball.x, ball.y);
+      context.stroke();
+    }
+  });
+
+  context.restore();
+}
+
+function drawCanvasPowerUps() {
+  context.save();
+  if (powerUpManager.cadenceCore.active) drawCadenceCorePowerUp(powerUpManager.cadenceCore.active);
+  context.restore();
+}
+
+function drawCadenceCorePowerUp(powerUp) {
+  const pulse = 0.86 + Math.sin(powerUp.pulseTime * 7) * 0.14;
+  const radius = powerUp.width * 0.32 * pulse;
+
+  context.save();
+  context.translate(powerUp.x, powerUp.y);
+  context.rotate(powerUp.pulseTime * 2.4);
+  context.fillStyle = "rgba(0, 0, 0, 0.5)";
+  context.beginPath();
+  context.arc(0, 0, powerUp.width * 0.54, 0, 2 * Math.PI);
+  context.fill();
+
+  context.strokeStyle = "rgba(130, 236, 255, 0.76)";
+  context.lineWidth = 4;
+  context.beginPath();
+  context.arc(0, 0, powerUp.width * 0.42, 0, 2 * Math.PI);
+  context.stroke();
+
+  context.strokeStyle = "rgba(255, 248, 128, 0.9)";
+  context.lineWidth = 3;
+  for (let index = 0; index < 4; index += 1) {
+    const angle = index * Math.PI / 2;
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * powerUp.width * 0.16, Math.sin(angle) * powerUp.width * 0.16);
+    context.lineTo(Math.cos(angle) * powerUp.width * 0.48, Math.sin(angle) * powerUp.width * 0.48);
+    context.stroke();
+  }
+
+  const gradient = context.createRadialGradient(0, 0, 0, 0, 0, radius);
+  gradient.addColorStop(0, "rgba(255, 255, 235, 1)");
+  gradient.addColorStop(0.5, "rgba(255, 220, 76, 0.95)");
+  gradient.addColorStop(1, "rgba(44, 210, 255, 0.25)");
+  context.fillStyle = gradient;
+  context.beginPath();
+  context.arc(0, 0, radius, 0, 2 * Math.PI);
+  context.fill();
+  context.restore();
+}
+
 function formatLastLaserTheta() {
   if (!enemyLaserManager.lastShot) return "n/a";
   return `${(enemyLaserManager.lastShot.theta * 180 / Math.PI).toFixed(1)} grados`;
@@ -3831,6 +4551,11 @@ function getBossSpecialDebugState() {
   const boss = bossManager.boss;
   const specialConfig = getCurrentBossConfig().specialAttack;
   if (!boss || !specialConfig) return "n/a";
+  if (specialConfig.type === "spectralLine") {
+    const attack = boss.spectralAttack;
+    if (!attack) return `cooldown ${boss.specialAttackCooldown.toFixed(2)}s`;
+    return `${attack.state} bola ${Math.min(attack.nextShotIndex + 1, attack.balls.length)}/${attack.balls.length}`;
+  }
   if (boss.specialTelegraphRemaining > 0) return `telegraph ${boss.specialTelegraphRemaining.toFixed(2)}s`;
   return `cooldown ${boss.specialAttackCooldown.toFixed(2)}s`;
 }
@@ -3838,10 +4563,22 @@ function getBossSpecialDebugState() {
 function formatBossSpecialFanAngles() {
   const specialConfig = getCurrentBossConfig().specialAttack;
   if (!specialConfig) return "n/a";
+  if (specialConfig.type === "spectralLine") return `${specialConfig.projectileCount} bolas | ${specialConfig.shotInterval}s`;
 
   const startDegrees = specialConfig.startAngle * 180 / Math.PI;
   const endDegrees = specialConfig.endAngle * 180 / Math.PI;
   return `${specialConfig.projectileCount} lasers | ${startDegrees.toFixed(0)}-${endDegrees.toFixed(0)} grados`;
+}
+
+function formatBossPlayerHealthDropsDebug(boss) {
+  if (!boss) return "n/a";
+
+  const drops = getCurrentBossConfig().playerHealthDrops;
+  if (!drops?.length) return String(boss.playerLowHealthDropReleased);
+
+  return drops
+    .map((drop, index) => `${Math.round(drop.hpRatio * 100)}%:${Boolean(boss.playerHealthDropsReleased[index])}`)
+    .join(" ");
 }
 
 function getBossDebugState() {
@@ -4171,12 +4908,14 @@ function render(currentTime) {
   drawRocketSmoke();
   drawRockets();
   drawBossSpecialTelegraph();
+  drawBossSpectralBalls();
   drawEnemyLasers();
   drawLaserTankImpacts();
   drawProjectileImpacts();
   drawRocketExplosions();
   drawGroundLaserImpactFlashes();
   drawHealthDrops();
+  drawCanvasPowerUps();
   drawMuzzleSmoke();
   drawMuzzleFlash();
   drawEnemyHealthBars();
@@ -4191,6 +4930,9 @@ function render(currentTime) {
   }
   if (powerUpManager.rocketLauncher.active) {
     positionSpriteFromCenter(powerUpManager.rocketLauncher.active.sprite, powerUpManager.rocketLauncher.active);
+  }
+  if (powerUpManager.rocketUpgrade.active) {
+    positionSpriteFromCenter(powerUpManager.rocketUpgrade.active.sprite, powerUpManager.rocketUpgrade.active);
   }
   if (debug.enabled && gameState.status !== GAME_STATES.LEVEL_COMPLETE && gameState.status !== GAME_STATES.LEVEL_PREVIEW) drawDebug();
   updateDebugPresentationPanelVisibility();
