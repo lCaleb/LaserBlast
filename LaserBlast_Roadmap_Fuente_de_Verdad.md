@@ -56,13 +56,16 @@ Actualmente están cerrados/implementados:
 - Nivel 1 completo y balanceado.
 - Nivel 2 implementado y jugable a nivel de configuración/código.
 - Boss 2 implementado.
+- Nivel 3 implementado a nivel de configuración/código.
+- Boss 3 implementado.
 - Menú principal definitivo.
 - Menú principal y overlays en ajuste responsive para pantallas pequeñas.
 - Sistema global de pausa.
+- Sistema de checkpoint de partida actual.
 - Game Over.
 - Nivel Superado.
 - Panel de presentación/debug con `Q`.
-- Selector de presentación/debug con Nivel 1 y Nivel 2.
+- Selector de presentación/debug con Nivel 1, Nivel 2 y Nivel 3.
 - Música por stage implementada para Inicio, Nudo y Boss.
 - Deploy en Netlify conectado a `main` con despliegue automático por push.
 - Versionador visual en pantalla para verificar despliegues.
@@ -611,7 +614,9 @@ Existe un versionador visible en pantalla para verificar si el despliegue tomó 
 
 Nivel 2 ya fue implementado en código.
 
-Niveles 3–5 no deben implementarse sin una tarea explícita.
+Nivel 3 ya fue implementado en código.
+
+Niveles 4–5 no deben implementarse sin una tarea explícita.
 
 ### Nivel 2 — IMPLEMENTADO / PENDIENTE DE BALANCE FINAL
 
@@ -622,12 +627,50 @@ Niveles 3–5 no deben implementarse sin una tarea explícita.
 - Selector debug/presentación permite cargar Nivel 2.
 - Pendiente: prueba completa de gameplay y ajuste fino de balance si hace falta.
 
-### Nivel 3 — PENDIENTE
+### Nivel 3 — IMPLEMENTADO / PENDIENTE DE BALANCE FINAL
 
-- Enemigos con frecuencia/ciclos.
-- Inicia conservando 3 cañones.
+- Enemigos con frecuencia/ciclos implementados.
+- Trayectoria principal:
+
+```text
+y = D + 35 * sin((2π / 600) * x)
+y = D + 35 * cos((2π / 600) * x)
+```
+
+- En Nudo se mezcla una variante más rápida con `T = 400`, sin reemplazar a todos los enemigos.
+- Mezcla actual de Nudo:
+
+```text
+T = 600, 400, 400
+```
+
+- Inicia con 3 cañones.
 - Heavy durante Nudo -> 4 cañones.
-- Boss 3.
+- Boss 3 implementado con `assets/gif/jefe3.gif`.
+- Boss 3 conserva patrón normal `1 -> 1 -> 2 -> 2`.
+- Boss 3 tiene ataque especial periódico:
+  - abanico semicircular hacia abajo;
+  - 7 láseres;
+  - rango angular `0` a `π` radianes;
+  - telegraph previo de `0.5s`;
+  - intervalo aproximado de `6s`.
+- Boss 3 suelta 1 pickup de vida al bajar por primera vez a 50% HP o menos.
+- El drop de vida del Boss 3 ocurre una sola vez por combate.
+- Durante Boss 3, si el tanque baja por primera vez a 30% HP o menos, se suelta 1 pickup de vida adicional.
+- El drop por vida baja del tanque es independiente del drop por vida del Boss y ocurre una sola vez por combate.
+- Los pickups propios de Boss 3 curan `40 HP` cada uno y respetan el máximo de vida del tanque.
+- Rocket Launcher implementado en primera versión para Nivel 3:
+  - aparece como pickup en la kill normal #28;
+  - se dispara automáticamente al mantener `Space`;
+  - cooldown de `3s`;
+  - Nivel 3 dispara `1` misil;
+  - cada misil hace `4` de daño;
+  - el misil es teledirigido con giro progresivo hacia enemigos vivos;
+  - si no hay objetivos, mantiene su trayectoria hasta salir de pantalla;
+  - al colisionar usa explosión propia hecha en Canvas;
+  - HUD de habilidad con icono, indicador `SP` y overlay radial de cooldown;
+  - debug pinta posición/ángulo del misil con marcador propio.
+- Pendiente: prueba completa de gameplay y ajuste fino de balance.
 
 ### Nivel 4 — PENDIENTE
 
@@ -742,23 +785,52 @@ Por políticas del navegador, el audio debe iniciar después de interacción del
 
 ---
 
-## 26. Pendientes próximos
+## 26. Sistema de checkpoint — IMPLEMENTADO
+
+- El checkpoint es independiente del debug/presentación.
+- No usa `localStorage`; existe solo durante la partida actual.
+- Para cada nivel con Heavy se calcula como:
+
+```text
+checkpoint = heavy.normalKillTrigger - 1
+```
+
+- Al alcanzar ese valor de kills normales, se guarda:
+  - nivel actual;
+  - kills normales;
+  - score en ese punto;
+  - stage correspondiente a esas kills;
+  - nivel de arma previo al Heavy.
+- Si el tanque muere después de alcanzar el checkpoint, el menú de Game Over muestra `CONTINUAR DESDE CHECKPOINT`.
+- Al elegir continuar desde checkpoint, reaparece desde ese punto:
+  - mismo nivel;
+  - kills restauradas al checkpoint;
+  - vida completa;
+  - arma previa al Heavy;
+  - Heavy y mejoras posteriores pendientes nuevamente;
+  - enemigos, Boss, proyectiles, drops e impactos temporales limpiados.
+- Si el tanque muere antes de alcanzar el checkpoint, el menú de Game Over conserva solo el reinicio actual.
+- La lógica depende de la configuración `powerUps.heavyMachineGun.normalKillTrigger`, por lo que aplica a niveles futuros con la misma estructura.
+
+---
+
+## 27. Pendientes próximos
 
 Siguientes sistemas o niveles se implementarán por tareas separadas:
 
 1. SFX del sistema de audio.
-2. Checkpoints persistentes por nivel.
-3. Balance/prueba final del Nivel 2.
-4. Nivel 3.
-5. Boss 3.
-6. Niveles 4–5.
+2. Balance/prueba final del Nivel 2.
+3. Balance/prueba final del Nivel 3.
+4. Nivel 4.
+5. Boss 4.
+6. Nivel 5.
 7. Boss final y victoria final.
 8. Documento académico.
 9. Preparación de exposición.
 
 ---
 
-## 27. Regla de trabajo
+## 28. Regla de trabajo
 
 No implementar cambios futuros solo porque aparecen en este roadmap.
 

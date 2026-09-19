@@ -21,6 +21,7 @@
           <select id="debug-level-select">
             <option value="1">NIVEL 1</option>
             <option value="2">NIVEL 2</option>
+            <option value="3">NIVEL 3</option>
           </select>
           <label for="debug-stage-select">STAGE</label>
           <select id="debug-stage-select">
@@ -54,7 +55,8 @@
               <p id="game-over-level">NIVEL 1</p>
             </div>
             <div class="overlay-actions">
-              <button id="retry-button" class="arcade-button arcade-button-primary" type="button">REINTENTAR</button>
+              <button id="checkpoint-button" class="arcade-button arcade-button-primary" type="button" hidden>CONTINUAR DESDE CHECKPOINT</button>
+              <button id="retry-button" class="arcade-button arcade-button-secondary" type="button">REINTENTAR</button>
               <button id="main-menu-button" class="arcade-button arcade-button-secondary" type="button">MEN&Uacute; PRINCIPAL</button>
             </div>
           </div>
