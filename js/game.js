@@ -762,6 +762,8 @@ const LEVEL_CONFIG = {
       specialAttack: {
         type: "secantAsymptote",
         interval: 6,
+        enragedInterval: 5,
+        enrageOnHpRatio: 0.5,
         duration: 6.5,
         secantTrajectory: {
           type: "secant",
@@ -2728,6 +2730,7 @@ const bossManager = {
       specialTelegraphDuration: config.specialAttack?.telegraphDuration ?? 0,
       spectralAttack: null,
       secantAttack: null,
+      enraged: false,
       healthDropReleased: false,
       playerLowHealthDropReleased: false,
       playerHealthDropsReleased: (config.playerHealthDrops ?? []).map(() => false),
@@ -2861,7 +2864,7 @@ const bossManager = {
     boss.trajectory = { ...config.trajectory };
     boss.visible = true;
     boss.visibilityAlpha = 1;
-    boss.specialAttackCooldown = specialConfig.interval;
+    boss.specialAttackCooldown = getBossSecantInterval(boss, specialConfig);
   },
 
   updateSecantRaySequence(attack, rayConfig, deltaSeconds) {
@@ -3149,8 +3152,20 @@ const bossManager = {
     if (boss.visible === false) return;
 
     boss.hp = Math.max(0, boss.hp - damage);
+    this.tryActivateBossEnrage(boss);
     this.tryReleaseBossHealthDrop(boss);
     if (boss.hp <= 0) this.defeatBoss();
+  },
+
+  tryActivateBossEnrage(boss) {
+    const config = getCurrentBossConfig();
+    const specialConfig = config.specialAttack;
+    const hpRatioTrigger = specialConfig?.enrageOnHpRatio;
+    if (!hpRatioTrigger || boss.enraged) return;
+    if (boss.hp > boss.maxHp * hpRatioTrigger) return;
+
+    boss.enraged = true;
+    boss.specialAttackCooldown = 0;
   },
 
   tryReleaseBossHealthDrop(boss) {
@@ -3285,6 +3300,10 @@ function getBossSecantAttackConfig() {
   return specialConfig?.type === "secantAsymptote" ? specialConfig : null;
 }
 
+function getBossSecantInterval(boss, specialConfig) {
+  return boss?.enraged ? (specialConfig.enragedInterval ?? specialConfig.interval) : specialConfig.interval;
+}
+
 function getBossAttackPattern(config = getCurrentBossConfig()) {
   return config.attackPattern;
 }
@@ -3363,6 +3382,14 @@ function positionSpriteFromAnchor(sprite, entity) {
   sprite.style.width = `${entity.width * scale}px`;
   sprite.style.height = `${entity.height * scale}px`;
   sprite.style.opacity = entity.visible === false ? "0" : String(entity.visibilityAlpha ?? 1);
+  if (entity.enraged && entity.visible !== false) {
+    const pulse = 0.55 + Math.sin(performance.now() / 95) * 0.35;
+    const outer = Math.round(18 + pulse * 16);
+    const inner = Math.round(8 + pulse * 8);
+    sprite.style.filter = `drop-shadow(0 0 ${outer}px rgba(255, 20, 20, ${0.55 + pulse * 0.35})) drop-shadow(0 0 ${inner}px rgba(255, 210, 120, ${0.28 + pulse * 0.25}))`;
+  } else {
+    sprite.style.filter = "";
+  }
   sprite.style.transformOrigin = "center center";
   sprite.style.transform = entity.flipWhenMovingRight && entity.direction > 0 ? "scaleX(-1)" : "";
 }
@@ -4580,6 +4607,9 @@ function drawDebug() {
     context.fillStyle = "#ff8080";
     drawDebugText(`Boss estado: ${getBossDebugState()}`, panelX, panelY);
     drawDebugText(`HP Boss: ${boss ? `${boss.hp}/${boss.maxHp}` : "n/a"}`, panelX + 250, panelY);
+    panelY += 20;
+    drawDebugText(`Boss furia: ${boss ? boss.enraged : "n/a"}`, panelX, panelY);
+    drawDebugText(`Secante intervalo: ${boss ? getBossSecantInterval(boss, bossConfig.specialAttack) : "n/a"}s`, panelX + 250, panelY);
     panelY += 20;
     drawDebugText(`Boss drop vida: ${boss ? boss.healthDropReleased : "n/a"}`, panelX, panelY);
     drawDebugText(`Drops tanque bajo: ${formatBossPlayerHealthDropsDebug(boss)}`, panelX + 250, panelY);

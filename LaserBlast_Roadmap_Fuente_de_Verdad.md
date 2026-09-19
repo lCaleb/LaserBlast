@@ -784,6 +784,11 @@ y = 180 + 45 sin((2π/600)x) + 25 cos((2π/300)x)
   - HP Boss 5: `3200`;
   - fireInterval láser normal Boss 5: `1.15s`;
   - daño, movimiento, fase secante, Rayos de Asíntota, Rocket y cura previa se mantienen sin cambios.
+- Modo furia Boss 5:
+  - se activa cuando Boss 5 baja al `50%` de HP;
+  - activa la siguiente fase secante lo antes posible sin solaparse con bolas espectrales;
+  - intervalo de secante en furia: `5s`;
+  - agrega contorno rojo parpadeante al sprite para comunicar el cambio de estado.
 - Recuperación durante Boss 5:
   - tanque al `50%` o menos: drop de `40 HP`;
   - tanque al `25%` o menos: drop de `40 HP`;
