@@ -59,9 +59,19 @@ const ROCKET_SMOKE_EMIT_INTERVAL = 0.035;
 const ROCKET_SMOKE_MAX_PARTICLES = 48;
 const ROCKET_HUD_SIZE = 62;
 const ROCKET_MULTI_LAUNCH_INTERVAL = 0.5;
+const ROCKET_TRIPLE_LAUNCH_INTERVAL = 0.75;
 const ROCKET_EXPLOSION_DURATION = 0.38;
 const ROCKET_EXPLOSION_RADIUS = 42;
 const ROCKET_EXPLOSION_PARTICLES = 18;
+const BASE_PROJECTILE_DAMAGE = 2;
+const UPGRADED_PROJECTILE_DAMAGE = 3;
+const SECANT_MIN_ABS_COS = 0.26;
+const SECANT_FADE_ABS_COS = 0.42;
+const SECANT_SAFE_OFFSET_LIMIT = 220;
+const BOSS_SECANT_MIN_ABS_COS = 0.1;
+const BOSS_SECANT_FADE_ABS_COS = 0.18;
+const BOSS_SECANT_SAFE_OFFSET_LIMIT = 300;
+const TRAJECTORY_DEBUG_SAMPLE_STEP = 8;
 const MUZZLE_FLASH_DURATION = 0.055;
 const MUZZLE_SMOKE_DURATION = 0.34;
 const MUZZLE_SMOKE_MAX_PARTICLES = 28;
@@ -282,6 +292,7 @@ const LEVEL_CONFIG = {
       maxHp: 800,
       speed: 155,
       initialDirection: -1,
+      flipWhenMovingRight: true,
       trajectory: {
         type: "cos",
         midline: 180,
@@ -635,7 +646,7 @@ const LEVEL_CONFIG = {
     },
     drops: {
       health: {
-        dropChance: 0.18,
+        dropChance: 0.20,
         healAmount: 25,
         width: 42,
         height: 42,
@@ -678,7 +689,242 @@ const LEVEL_CONFIG = {
       },
     },
   },
-  5: { normalEnemy: { hp: 70 } },
+  5: {
+    enabled: true,
+    start: {
+      stage: STAGES.INICIO,
+      tankX: TANK_START_X,
+      tankY: TANK_START_Y,
+      tankHp: TANK_MAX_HP,
+      weaponLevel: 4,
+      projectileFireInterval: PROJECTILE_FIRE_INTERVAL_UPGRADED,
+      projectileDamage: BASE_PROJECTILE_DAMAGE,
+      rocketLauncher: {
+        enabled: true,
+        rockets: 2,
+        rocketDamage: 12,
+        cooldown: ROCKET_COOLDOWN,
+        launchInterval: ROCKET_MULTI_LAUNCH_INTERVAL,
+      },
+    },
+    normalEnemy: {
+      hp: 68,
+      lanes: [85, 170, 255],
+      trajectory: {
+        type: "sin",
+        amplitude: 42,
+        period: 560,
+      },
+      laser: {
+        speed: 420,
+        fireInterval: 1.7,
+        damage: 9,
+      },
+    },
+    boss: {
+      asset: "assets/gif/JefeFin.gif",
+      label: "Boss 5",
+      width: 292,
+      height: 212,
+      visualOffsetX: 0,
+      visualOffsetY: 0,
+      maxHp: 3700,
+      speed: 145,
+      initialDirection: -1,
+      flipWhenMovingRight: true,
+      trajectory: {
+        type: "sinCos",
+        midline: 190,
+        sinAmplitude: 40,
+        sinPeriod: 500,
+        cosAmplitude: 30,
+        cosPeriod: 250,
+      },
+      laser: {
+        speed: 500,
+        fireInterval: 1.0,
+        damage: 18,
+        length: 62,
+        lineWidth: 8,
+        type: "boss",
+        colors: {
+          fade: "rgba(255, 48, 225, 0)",
+          core: "rgba(255, 64, 220, 0.88)",
+          tip: "rgba(228, 255, 255, 1)",
+          glowOuter: "rgba(112, 60, 255, 0.3)",
+          glowInner: "rgba(255, 94, 228, 0.62)",
+        },
+      },
+      attackPattern: {
+        sequence: [1, 2, 1, 2],
+        doubleSpreadDegrees: 11,
+      },
+      specialAttack: {
+        type: "secantAsymptote",
+        interval: 6,
+        duration: 6.5,
+        secantTrajectory: {
+          type: "secant",
+          midline: 190,
+          amplitude: 30,
+          divisor: 300,
+          validMinY: 8,
+          validMaxY: 410,
+          minAbsCos: BOSS_SECANT_MIN_ABS_COS,
+          fadeAbsCos: BOSS_SECANT_FADE_ABS_COS,
+          maxOffset: BOSS_SECANT_SAFE_OFFSET_LIMIT,
+        },
+        asymptoteRays: {
+          positions: [150, 450, 750, 1050],
+          telegraphDuration: 0.85,
+          activeDuration: 0.42,
+          sequenceInterval: 0.55,
+          damage: 12,
+          width: 74,
+        },
+      },
+      spectralAttack: {
+        type: "spectralLine",
+        interval: 12,
+        telegraphDuration: 1.5,
+        projectileCount: 3,
+        shotInterval: 0.8,
+        lineWidth: 240,
+        lineOffsetY: -125,
+        speed: 360,
+        requiresClearSpecials: true,
+      },
+      healthDropOnHpRatio: 0.5,
+      healthDropHealAmount: 40,
+      playerHealthDrops: [
+        { hpRatio: 0.5, healAmount: 40 },
+        { hpRatio: 0.25, healAmount: 40 },
+      ],
+      projectileHitbox: {
+        insetX: 32,
+        topOffset: -68,
+        bottomOffset: 42,
+      },
+      deathExplosion: {
+        asset: TANK_DEATH_EXPLOSION_ASSET,
+        duration: TANK_DEATH_EXPLOSION_DURATION,
+        width: 420,
+        height: 520,
+      },
+    },
+    powerUps: {
+      damageCore: {
+        normalKillTrigger: 30,
+        projectileDamage: UPGRADED_PROJECTILE_DAMAGE,
+        width: 56,
+        height: 56,
+        spawnX: 600,
+        spawnY: 80,
+        fallSpeed: 138,
+        groundAvailableTime: 8,
+        enabled: true,
+      },
+      rocketUpgrade: {
+        asset: "assets/gif/RocketLauncher.webp",
+        label: "Rocket Launcher x3",
+        normalKillTrigger: 40,
+        rockets: 3,
+        rocketDamage: 12,
+        width: 76,
+        height: 76,
+        spawnX: 600,
+        spawnY: 80,
+        fallSpeed: 145,
+        groundAvailableTime: 8,
+        cooldown: ROCKET_COOLDOWN,
+        launchInterval: ROCKET_TRIPLE_LAUNCH_INTERVAL,
+        enabled: true,
+      },
+    },
+    checkpoint: {
+      normalKillTrigger: 29,
+    },
+    drops: {
+      health: {
+        dropChance: 0.30,
+        healAmount: 25,
+        width: 42,
+        height: 42,
+        fallSpeed: 125,
+        groundAvailableTime: 7,
+        pulseScale: 0.14,
+        pulseSpeed: 5.5,
+        scripted: [
+          {
+            normalKillTrigger: 12,
+            healAmount: 40,
+          },
+        ],
+        preBoss: {
+          normalKillTrigger: 52,
+          healAmount: 50,
+          spawnY: 80,
+          groundAvailableTime: 8,
+        },
+      },
+    },
+    stages: {
+      [STAGES.INICIO]: {
+        maxNormalEnemies: 6,
+        spawnInterval: 1.15,
+        normalKillTarget: 22,
+        spawnsNormalEnemies: true,
+        normalTrajectoryVariants: [
+          { type: "sin", amplitude: 42, period: 560, phase: 0 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI / 2 },
+          { type: "sin", amplitude: 36, period: 400, phase: Math.PI },
+          { type: "sin", amplitude: 36, period: 400, phase: 3 * Math.PI / 2 },
+          { type: "sinCos", sinAmplitude: 30, sinPeriod: 520, sinPhase: 0, cosAmplitude: 16, cosPeriod: 260 },
+          { type: "sinCos", sinAmplitude: 30, sinPeriod: 520, sinPhase: Math.PI / 2, cosAmplitude: 16, cosPeriod: 260 },
+        ],
+      },
+      [STAGES.NUDO]: {
+        maxNormalEnemies: 7,
+        spawnInterval: 1.0,
+        normalKillTarget: 52,
+        spawnsNormalEnemies: true,
+        secantEnemies: {
+          enabled: true,
+          maxActive: 2,
+        },
+        normalTrajectoryVariants: [
+          { type: "sin", amplitude: 42, period: 560, phase: 0 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI / 2 },
+          { type: "sin", amplitude: 42, period: 560, phase: Math.PI },
+          { type: "sin", amplitude: 42, period: 560, phase: 3 * Math.PI / 2 },
+          { type: "sin", amplitude: 36, period: 400, phase: 0 },
+          { type: "sin", amplitude: 36, period: 400, phase: Math.PI / 2 },
+          { type: "sin", amplitude: 36, period: 400, phase: Math.PI },
+          { type: "sin", amplitude: 36, period: 400, phase: 3 * Math.PI / 2 },
+          { type: "sinCos", sinAmplitude: 30, sinPeriod: 520, sinPhase: 0, cosAmplitude: 16, cosPeriod: 260 },
+          { type: "sinCos", sinAmplitude: 30, sinPeriod: 520, sinPhase: Math.PI / 2, cosAmplitude: 16, cosPeriod: 260 },
+          { type: "sinCos", sinAmplitude: 30, sinPeriod: 520, sinPhase: Math.PI, cosAmplitude: 16, cosPeriod: 260 },
+          { type: "sinCos", sinAmplitude: 30, sinPeriod: 520, sinPhase: 3 * Math.PI / 2, cosAmplitude: 16, cosPeriod: 260 },
+          {
+            type: "secant",
+            amplitude: 28,
+            divisor: 300,
+            validMinY: 55,
+            validMaxY: 320,
+            minAbsCos: SECANT_MIN_ABS_COS,
+            fadeAbsCos: SECANT_FADE_ABS_COS,
+            maxOffset: SECANT_SAFE_OFFSET_LIMIT,
+          },
+        ],
+      },
+      [STAGES.BOSS]: {
+        maxNormalEnemies: 0,
+        spawnInterval: null,
+        normalKillTarget: null,
+        spawnsNormalEnemies: false,
+      },
+    },
+  },
 };
 
 const SCORE_CONFIG = {
@@ -720,6 +966,16 @@ const DEBUG_PRESENTATION_CONFIG = {
       [STAGES.NUDO]: 25,
     },
   },
+  5: {
+    weaponLevelByStage: {
+      [STAGES.INICIO]: 4,
+      [STAGES.NUDO]: 4,
+      [STAGES.BOSS]: 4,
+    },
+    normalEnemiesDestroyedByStage: {
+      [STAGES.NUDO]: 29,
+    },
+  },
 };
 
 let currentLevel = 1;
@@ -739,6 +995,7 @@ const checkpointState = {
   stage: STAGES.INICIO,
   weaponLevel: STARTING_WEAPON_LEVEL,
   weaponFireInterval: PROJECTILE_FIRE_INTERVAL,
+  projectileDamage: BASE_PROJECTILE_DAMAGE,
 };
 
 const debug = {
@@ -758,6 +1015,8 @@ const tank = {
   hp: TANK_MAX_HP,
   alive: true,
   visible: true,
+  asymptoteHitFlash: 0,
+  spectralHitFlash: 0,
 };
 
 const musicManager = {
@@ -831,7 +1090,7 @@ musicManager.setup();
 
 const weapon = {
   level: STARTING_WEAPON_LEVEL,
-  projectileDamage: 2,
+  projectileDamage: BASE_PROJECTILE_DAMAGE,
   fireInterval: PROJECTILE_FIRE_INTERVAL,
   muzzlePoints: [
     { id: 1, offsetX: -8, offsetY: -50 },
@@ -846,6 +1105,9 @@ const input = {
   right: false,
   fire: false,
 };
+
+const trajectoryRenderCache = new Map();
+const trajectorySampleScratch = { y: 0, valid: true, alpha: 1 };
 
 const muzzleFlashes = [];
 
@@ -962,6 +1224,7 @@ const projectileManager = {
         width: 4,
         height: 18,
         speed: PROJECTILE_SPEED,
+        damage: weapon.projectileDamage,
       });
       this.nextId += 1;
       muzzleFlashes.push({
@@ -1095,8 +1358,8 @@ const rocketManager = {
   },
 
   acquireTarget(missile) {
-    const targets = [...enemyManager.enemies];
-    if (bossManager.boss && !bossManager.defeated) targets.push(bossManager.boss);
+    const targets = enemyManager.enemies.filter((enemy) => enemy.visible !== false);
+    if (bossManager.boss && !bossManager.defeated && bossManager.boss.visible !== false) targets.push(bossManager.boss);
     if (targets.length === 0) return null;
 
     return targets.reduce((closest, target) => {
@@ -1109,12 +1372,12 @@ const rocketManager = {
 
   isTargetAlive(target) {
     if (!target) return false;
-    if (target === bossManager.boss) return !bossManager.defeated && target.hp > 0 && !target.deathProcessed;
-    return enemyManager.enemies.includes(target) && target.hp > 0;
+    if (target === bossManager.boss) return !bossManager.defeated && target.hp > 0 && !target.deathProcessed && target.visible !== false;
+    return enemyManager.enemies.includes(target) && target.hp > 0 && target.visible !== false;
   },
 
   hasLiveTargets() {
-    return enemyManager.enemies.some((enemy) => enemy.hp > 0) || this.isTargetAlive(bossManager.boss);
+    return enemyManager.enemies.some((enemy) => enemy.hp > 0 && enemy.visible !== false) || this.isTargetAlive(bossManager.boss);
   },
 
   getTargetCenter(target) {
@@ -1237,6 +1500,8 @@ const enemyLaserManager = {
   },
 
   updateEnemyFire(enemy, deltaSeconds) {
+    if (enemy.visible === false) return;
+
     const laserConfig = getCurrentEnemyLaserConfig();
     enemy.laserCooldown -= deltaSeconds;
 
@@ -1447,6 +1712,149 @@ const laserTankImpactManager = {
   },
 };
 
+const asymptoteImpactManager = {
+  impacts: [],
+  nextId: 1,
+
+  createGroundImpact(x, width) {
+    this.impacts.push(this.createImpact("ground", x, debug.groundY - 4, width, 0.68));
+  },
+
+  createTankImpact(x, y, width) {
+    this.impacts.push(this.createImpact("tank", x, y, width, 0.5));
+  },
+
+  createImpact(type, x, y, width, duration) {
+    const particles = [];
+    const particleCount = type === "ground" ? 26 : 18;
+    for (let index = 0; index < particleCount; index += 1) {
+      const angle = type === "ground"
+        ? Math.PI + Math.random() * Math.PI
+        : Math.random() * 2 * Math.PI;
+      const speed = type === "ground" ? 120 + Math.random() * 210 : 90 + Math.random() * 170;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: type === "ground"
+          ? -Math.abs(Math.sin(angle) * speed * 0.7) - Math.random() * 60
+          : Math.sin(angle) * speed,
+        radius: type === "ground" ? 4 + Math.random() * 7 : 3 + Math.random() * 6,
+      });
+    }
+
+    return {
+      id: this.nextId++,
+      type,
+      x,
+      y,
+      width,
+      duration,
+      remainingTime: duration,
+      particles,
+    };
+  },
+
+  update(deltaSeconds) {
+    for (let index = this.impacts.length - 1; index >= 0; index -= 1) {
+      const impact = this.impacts[index];
+      impact.remainingTime -= deltaSeconds;
+      impact.particles.forEach((particle) => {
+        particle.x += particle.vx * deltaSeconds;
+        particle.y += particle.vy * deltaSeconds;
+        particle.vx *= 0.9;
+        particle.vy *= 0.9;
+      });
+
+      if (impact.remainingTime > 0) continue;
+      this.impacts.splice(index, 1);
+    }
+  },
+
+  clear() {
+    this.impacts = [];
+    this.nextId = 1;
+  },
+};
+
+const spectralImpactManager = {
+  impacts: [],
+  nextId: 1,
+
+  createTankImpact(x, y, radius) {
+    this.impacts.push(this.createImpact("tank", x, y, radius * 1.35, 0.72));
+  },
+
+  createGroundImpact(x, y, radius) {
+    this.impacts.push(this.createImpact("ground", x, y, radius * 1.45, 0.82));
+  },
+
+  createImpact(type, x, y, radius, duration) {
+    const particles = [];
+    const rays = [];
+    const particleCount = type === "ground" ? 30 : 24;
+    const rayCount = type === "ground" ? 12 : 10;
+
+    for (let index = 0; index < particleCount; index += 1) {
+      const angle = type === "ground"
+        ? Math.PI + Math.random() * Math.PI
+        : Math.random() * 2 * Math.PI;
+      const speed = type === "ground" ? 140 + Math.random() * 220 : 125 + Math.random() * 205;
+      particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: type === "ground"
+          ? -Math.abs(Math.sin(angle) * speed * 0.65) - Math.random() * 35
+          : Math.sin(angle) * speed,
+        radius: type === "ground" ? 4 + Math.random() * 7 : 3.5 + Math.random() * 6.5,
+        mix: Math.random(),
+      });
+    }
+
+    for (let index = 0; index < rayCount; index += 1) {
+      const angle = (index / rayCount) * Math.PI * 2 + Math.random() * 0.35;
+      rays.push({
+        angle,
+        length: radius * (2.15 + Math.random() * 1.85),
+      });
+    }
+
+    return {
+      id: this.nextId++,
+      type,
+      x,
+      y,
+      radius,
+      duration,
+      remainingTime: duration,
+      particles,
+      rays,
+    };
+  },
+
+  update(deltaSeconds) {
+    for (let index = this.impacts.length - 1; index >= 0; index -= 1) {
+      const impact = this.impacts[index];
+      impact.remainingTime -= deltaSeconds;
+      impact.particles.forEach((particle) => {
+        particle.x += particle.vx * deltaSeconds;
+        particle.y += particle.vy * deltaSeconds;
+        particle.vx *= 0.9;
+        particle.vy *= 0.9;
+      });
+
+      if (impact.remainingTime > 0) continue;
+      this.impacts.splice(index, 1);
+    }
+  },
+
+  clear() {
+    this.impacts = [];
+    this.nextId = 1;
+  },
+};
+
 const projectileImpactManager = {
   impacts: [],
   nextId: 1,
@@ -1614,6 +2022,11 @@ const powerUpManager = {
     collected: false,
     active: null,
   },
+  damageCore: {
+    generated: false,
+    collected: false,
+    active: null,
+  },
   rocketUpgrade: {
     generated: false,
     collected: false,
@@ -1624,10 +2037,12 @@ const powerUpManager = {
     this.trySpawnHeavyMachineGun();
     this.trySpawnRocketLauncher();
     this.trySpawnCadenceCore();
+    this.trySpawnDamageCore();
     this.trySpawnRocketUpgrade();
     this.updateHeavyMachineGun(deltaSeconds);
     this.updateRocketLauncher(deltaSeconds);
     this.updateCadenceCore(deltaSeconds);
+    this.updateDamageCore(deltaSeconds);
     this.updateRocketUpgrade(deltaSeconds);
   },
 
@@ -1803,6 +2218,36 @@ const powerUpManager = {
     this.cadenceCore.active = null;
   },
 
+  trySpawnDamageCore() {
+    const state = this.damageCore;
+    const config = getCurrentDamageCoreConfig();
+
+    if (state.generated || !config?.enabled) return;
+    if (gameState.normalEnemiesDestroyed < config.normalKillTrigger) return;
+
+    this.damageCore.generated = true;
+    this.damageCore.active = this.createCanvasPowerUp(config, "damageCore");
+  },
+
+  updateDamageCore(deltaSeconds) {
+    const powerUp = this.damageCore.active;
+    if (!powerUp) return;
+
+    this.updateCanvasPowerUp(powerUp, deltaSeconds, () => this.removeDamageCore());
+    if (isPowerUpCollidingWithTank(powerUp)) this.collectDamageCore();
+  },
+
+  collectDamageCore() {
+    const config = getCurrentDamageCoreConfig();
+    if (Number.isFinite(config?.projectileDamage)) weapon.projectileDamage = config.projectileDamage;
+    this.damageCore.collected = true;
+    this.removeDamageCore();
+  },
+
+  removeDamageCore() {
+    this.damageCore.active = null;
+  },
+
   trySpawnRocketUpgrade() {
     const state = this.rocketUpgrade;
     const config = getCurrentRocketUpgradeConfig();
@@ -1811,7 +2256,7 @@ const powerUpManager = {
     if (gameState.normalEnemiesDestroyed < config.normalKillTrigger) return;
 
     this.rocketUpgrade.generated = true;
-    this.rocketUpgrade.active = this.createImagePowerUp(config, "Rocket Launcher x2");
+    this.rocketUpgrade.active = this.createImagePowerUp(config, config.label ?? "Rocket Launcher x2");
   },
 
   updateRocketUpgrade(deltaSeconds) {
@@ -1896,6 +2341,9 @@ const powerUpManager = {
     this.removeCadenceCore();
     this.cadenceCore.generated = false;
     this.cadenceCore.collected = false;
+    this.removeDamageCore();
+    this.damageCore.generated = false;
+    this.damageCore.collected = false;
     this.removeRocketUpgrade();
     this.rocketUpgrade.generated = false;
     this.rocketUpgrade.collected = false;
@@ -1905,13 +2353,75 @@ const powerUpManager = {
 const healthDropManager = {
   drops: [],
   nextId: 1,
+  scriptedReleased: new Set(),
+  preBossReleased: new Set(),
+  preBossGate: null,
 
   tryCreateFromEnemyDeath(enemy) {
     const config = getCurrentHealthDropConfig();
     if (!config) return;
+    if (this.hasPendingScriptedDropForNormalKill(gameState.normalEnemiesDestroyed + 1)) return;
     if (Math.random() >= config.dropChance) return;
 
     this.createDrop(enemy.x, enemy.y, config);
+  },
+
+  hasPendingScriptedDropForNormalKill(normalKillCount) {
+    const config = getCurrentHealthDropConfig();
+    const scriptedDrops = config?.scripted ?? [];
+    const hasScriptedDrop = scriptedDrops.some((dropConfig) => {
+      const key = `${currentLevel}:${dropConfig.normalKillTrigger}`;
+      return normalKillCount === dropConfig.normalKillTrigger && !this.scriptedReleased.has(key);
+    });
+    const preBossConfig = config?.preBoss;
+    const preBossKey = preBossConfig ? `${currentLevel}:${preBossConfig.normalKillTrigger}` : null;
+    const hasPreBossDrop = Boolean(
+      preBossConfig &&
+      normalKillCount === preBossConfig.normalKillTrigger &&
+      !this.preBossReleased.has(preBossKey),
+    );
+    return hasScriptedDrop || hasPreBossDrop;
+  },
+
+  tryCreateScriptedFromNormalKill(enemy, normalKillCount) {
+    const config = getCurrentHealthDropConfig();
+    const scriptedDrops = config?.scripted ?? [];
+    if (!scriptedDrops.length) return;
+
+    scriptedDrops.forEach((dropConfig) => {
+      if (normalKillCount !== dropConfig.normalKillTrigger) return;
+
+      const key = `${currentLevel}:${dropConfig.normalKillTrigger}`;
+      if (this.scriptedReleased.has(key)) return;
+
+      this.scriptedReleased.add(key);
+      this.createDrop(enemy.x, enemy.y, {
+        ...config,
+        ...dropConfig,
+      });
+    });
+  },
+
+  tryCreatePreBossDrop() {
+    const config = getCurrentHealthDropConfig();
+    const dropConfig = config?.preBoss;
+    if (!dropConfig || gameState.normalEnemiesDestroyed !== dropConfig.normalKillTrigger) return false;
+
+    const key = `${currentLevel}:${dropConfig.normalKillTrigger}`;
+    if (this.preBossReleased.has(key)) return false;
+
+    this.preBossReleased.add(key);
+    const dropId = this.nextId;
+    this.preBossGate = { key, dropId };
+    this.createDrop(Math.max(80, Math.min(LOGICAL_WIDTH - 80, tank.x + tank.width / 2)), dropConfig.spawnY ?? 80, {
+      ...config,
+      ...dropConfig,
+    });
+    return true;
+  },
+
+  isPreBossGateActive() {
+    return Boolean(this.preBossGate);
   },
 
   createDrop(x, y, config) {
@@ -1960,12 +2470,17 @@ const healthDropManager = {
   },
 
   removeDropAt(index) {
+    const [drop] = this.drops.slice(index, index + 1);
+    if (drop && this.preBossGate?.dropId === drop.id) this.preBossGate = null;
     this.drops.splice(index, 1);
   },
 
   clear() {
     this.drops = [];
     this.nextId = 1;
+    this.scriptedReleased.clear();
+    this.preBossReleased.clear();
+    this.preBossGate = null;
   },
 };
 
@@ -2067,11 +2582,13 @@ const enemyManager = {
       height: typeConfig.height,
       speed: typeConfig.speed,
       direction: typeConfig.direction,
-      color: typeConfig.color,
+      color: trajectoryConfig.color ?? typeConfig.color,
       maxHp,
       hp: maxHp,
       scoreAwarded: false,
       hasEnteredCombat: false,
+      visible: true,
+      visibilityAlpha: 1,
       laserCooldown,
       midline,
       trajectory: {
@@ -2080,11 +2597,23 @@ const enemyManager = {
         amplitude: trajectoryConfig.amplitude,
         period: trajectoryConfig.period,
         phase: trajectoryConfig.phase ?? 0,
+        sinAmplitude: trajectoryConfig.sinAmplitude,
+        sinPeriod: trajectoryConfig.sinPeriod,
+        sinPhase: trajectoryConfig.sinPhase ?? trajectoryConfig.phase ?? 0,
+        cosAmplitude: trajectoryConfig.cosAmplitude,
+        cosPeriod: trajectoryConfig.cosPeriod,
+        cosPhase: trajectoryConfig.cosPhase ?? 0,
+        divisor: trajectoryConfig.divisor,
+        validMinY: trajectoryConfig.validMinY,
+        validMaxY: trajectoryConfig.validMaxY,
+        minAbsCos: trajectoryConfig.minAbsCos,
+        fadeAbsCos: trajectoryConfig.fadeAbsCos,
+        maxOffset: trajectoryConfig.maxOffset,
         midline,
       },
     };
 
-    enemy.y = calculateTrajectoryY(enemy, enemy.x);
+    updateTrajectoryState(enemy, enemy.x);
     sprite.className = "game-sprite";
     sprite.src = enemy.asset;
     sprite.alt = enemy.label;
@@ -2111,9 +2640,27 @@ const enemyManager = {
     const variants = getCurrentStageNormalTrajectoryVariants();
     if (!variants.length) return getCurrentNormalEnemyTrajectoryConfig();
 
-    const trajectoryConfig = variants[this.nextTrajectoryVariantIndex];
-    this.nextTrajectoryVariantIndex = (this.nextTrajectoryVariantIndex + 1) % variants.length;
-    return trajectoryConfig;
+    let trajectoryConfig = null;
+    for (let attempts = 0; attempts < variants.length; attempts += 1) {
+      const candidate = variants[this.nextTrajectoryVariantIndex];
+      this.nextTrajectoryVariantIndex = (this.nextTrajectoryVariantIndex + 1) % variants.length;
+      if (this.canUseTrajectoryConfig(candidate)) {
+        trajectoryConfig = candidate;
+        break;
+      }
+    }
+    return trajectoryConfig ?? variants.find((variant) => variant.type !== "secant") ?? getCurrentNormalEnemyTrajectoryConfig();
+  },
+
+  canUseTrajectoryConfig(trajectoryConfig) {
+    if (trajectoryConfig.type !== "secant") return true;
+
+    const secantConfig = getCurrentStageConfig().secantEnemies;
+    if (!secantConfig?.enabled) return false;
+
+    const maxActive = secantConfig.maxActive ?? 1;
+    const activeSecantEnemies = this.enemies.filter((enemy) => enemy.trajectory.type === "secant").length;
+    return activeSecantEnemies < maxActive;
   },
 
   removeEnemy(enemyToRemove, { keepSprite = false } = {}) {
@@ -2147,11 +2694,13 @@ const bossManager = {
   defeated: false,
   lastShot: null,
   attackCounter: 0,
+  asymptoteRays: [],
 
   tryCreateBoss() {
     if (this.created || this.defeated) return;
     if (gameState.stage !== STAGES.BOSS) return;
     if (enemyManager.enemies.length > 0) return;
+    if (healthDropManager.isPreBossGateActive()) return;
 
     const config = getCurrentBossConfig();
     const sprite = document.createElement("img");
@@ -2167,15 +2716,18 @@ const bossManager = {
       offsetY: -config.height / 2 + config.visualOffsetY,
       speed: config.speed,
       direction: config.initialDirection,
+      flipWhenMovingRight: Boolean(config.flipWhenMovingRight),
       maxHp: config.maxHp,
       hp: config.maxHp,
       hasEnteredCombat: false,
       deathProcessed: false,
       laserCooldown: config.laser.fireInterval * 0.55,
       specialAttackCooldown: config.specialAttack?.interval ?? null,
+      spectralAttackCooldown: config.spectralAttack?.interval ?? null,
       specialTelegraphRemaining: 0,
       specialTelegraphDuration: config.specialAttack?.telegraphDuration ?? 0,
       spectralAttack: null,
+      secantAttack: null,
       healthDropReleased: false,
       playerLowHealthDropReleased: false,
       playerHealthDropsReleased: (config.playerHealthDrops ?? []).map(() => false),
@@ -2199,6 +2751,7 @@ const bossManager = {
 
   update(deltaSeconds) {
     this.tryCreateBoss();
+    this.updateAsymptoteRays(deltaSeconds);
     const boss = this.boss;
     if (!boss || this.defeated) return;
 
@@ -2213,6 +2766,13 @@ const bossManager = {
     const config = getCurrentBossConfig();
     const specialConfig = config.specialAttack;
     if (!specialConfig) return;
+    if (specialConfig.type === "secantAsymptote") {
+      this.updateBossSecantAsymptoteAttack(boss, config, specialConfig, deltaSeconds);
+      if (config.spectralAttack) {
+        this.updateBossSpectralAttack(boss, config, config.spectralAttack, deltaSeconds, "spectralAttackCooldown");
+      }
+      return;
+    }
     if (specialConfig.type === "spectralLine") {
       this.updateBossSpectralAttack(boss, config, specialConfig, deltaSeconds);
       return;
@@ -2234,7 +2794,7 @@ const bossManager = {
     boss.specialTelegraphRemaining = specialConfig.telegraphDuration;
   },
 
-  updateBossSpectralAttack(boss, config, specialConfig, deltaSeconds) {
+  updateBossSpectralAttack(boss, config, specialConfig, deltaSeconds, cooldownKey = "specialAttackCooldown") {
     this.updateSpectralBalls(boss, deltaSeconds);
 
     if (boss.spectralAttack) {
@@ -2242,17 +2802,122 @@ const bossManager = {
       return;
     }
 
+    if (specialConfig.requiresClearSpecials && !this.canStartInheritedSpectralAttack(boss)) return;
+
+    boss[cooldownKey] -= deltaSeconds;
+    if (boss[cooldownKey] > 0) return;
+
+    this.startBossSpectralAttack(boss, config, specialConfig, cooldownKey);
+  },
+
+  canStartInheritedSpectralAttack(boss) {
+    return (
+      !boss.secantAttack &&
+      boss.visible !== false &&
+      this.asymptoteRays.length === 0
+    );
+  },
+
+  updateBossSecantAsymptoteAttack(boss, config, specialConfig, deltaSeconds) {
+    if (boss.spectralAttack) return;
+
+    if (boss.secantAttack) {
+      this.updateActiveSecantAttack(boss, config, specialConfig, deltaSeconds);
+      return;
+    }
+
     boss.specialAttackCooldown -= deltaSeconds;
     if (boss.specialAttackCooldown > 0) return;
 
-    this.startBossSpectralAttack(boss, config, specialConfig);
+    this.startBossSecantAttack(boss, specialConfig);
   },
 
-  startBossSpectralAttack(boss, config, specialConfig) {
+  startBossSecantAttack(boss, specialConfig) {
+    boss.secantAttack = {
+      remaining: specialConfig.duration,
+      nextRayIndex: 0,
+      rayCooldown: 0,
+    };
+    boss.specialTelegraphDuration = specialConfig.duration;
+    boss.specialTelegraphRemaining = specialConfig.duration;
+    boss.baseTrajectory = { ...boss.trajectory };
+    boss.trajectory = {
+      ...specialConfig.secantTrajectory,
+      phase: 0,
+    };
+  },
+
+  updateActiveSecantAttack(boss, config, specialConfig, deltaSeconds) {
+    const attack = boss.secantAttack;
+    attack.remaining = Math.max(0, attack.remaining - deltaSeconds);
+    boss.specialTelegraphRemaining = attack.remaining;
+    this.updateSecantRaySequence(attack, specialConfig.asymptoteRays, deltaSeconds);
+
+    if (attack.remaining > 0) return;
+
+    boss.secantAttack = null;
+    boss.specialTelegraphRemaining = 0;
+    boss.specialTelegraphDuration = specialConfig.duration;
+    boss.trajectory = { ...config.trajectory };
+    boss.visible = true;
+    boss.visibilityAlpha = 1;
+    boss.specialAttackCooldown = specialConfig.interval;
+  },
+
+  updateSecantRaySequence(attack, rayConfig, deltaSeconds) {
+    if (!rayConfig?.positions?.length) return;
+    attack.rayCooldown -= deltaSeconds;
+    if (attack.nextRayIndex >= rayConfig.positions.length || attack.rayCooldown > 0) return;
+
+    this.createAsymptoteRay(rayConfig.positions[attack.nextRayIndex], rayConfig);
+    attack.nextRayIndex += 1;
+    attack.rayCooldown = rayConfig.sequenceInterval;
+  },
+
+  createAsymptoteRay(x, rayConfig) {
+    this.asymptoteRays.push({
+      x,
+      width: rayConfig.width,
+      damage: rayConfig.damage,
+      telegraphRemaining: rayConfig.telegraphDuration,
+      activeRemaining: rayConfig.activeDuration,
+      state: "telegraph",
+      hasHitTank: false,
+    });
+  },
+
+  updateAsymptoteRays(deltaSeconds) {
+    for (let index = this.asymptoteRays.length - 1; index >= 0; index -= 1) {
+      const ray = this.asymptoteRays[index];
+
+      if (ray.state === "telegraph") {
+        ray.telegraphRemaining -= deltaSeconds;
+        if (ray.telegraphRemaining <= 0) {
+          ray.state = "active";
+          asymptoteImpactManager.createGroundImpact(ray.x, ray.width);
+        }
+      } else {
+        ray.activeRemaining -= deltaSeconds;
+        if (!ray.hasHitTank && isTankCollidingWithAsymptoteRay(ray)) {
+          ray.hasHitTank = true;
+          const tankCenter = getTankCenter();
+          laserTankImpactManager.createImpact(tankCenter.x, tankCenter.y);
+          asymptoteImpactManager.createTankImpact(tankCenter.x, tankCenter.y, ray.width);
+          tank.asymptoteHitFlash = 0.34;
+          damageTank(ray.damage);
+        }
+      }
+
+      if (ray.state === "active" && ray.activeRemaining <= 0) this.asymptoteRays.splice(index, 1);
+    }
+  },
+
+  startBossSpectralAttack(boss, config, specialConfig, cooldownKey = "specialAttackCooldown") {
     boss.specialTelegraphDuration = specialConfig.telegraphDuration;
     boss.specialTelegraphRemaining = specialConfig.telegraphDuration;
     boss.spectralAttack = {
       state: "forming",
+      cooldownKey,
       formTime: 0,
       shotCooldown: 0,
       nextShotIndex: 0,
@@ -2299,8 +2964,9 @@ const bossManager = {
 
     const hasPendingBalls = attack.balls.some((ball) => ball.state !== "expired");
     if (!hasPendingBalls) {
+      const cooldownKey = attack.cooldownKey ?? "specialAttackCooldown";
       boss.spectralAttack = null;
-      boss.specialAttackCooldown = specialConfig.interval;
+      boss[cooldownKey] = specialConfig.interval;
     }
   },
 
@@ -2359,16 +3025,36 @@ const bossManager = {
       ball.trail.push({ x: ball.x, y: ball.y });
       if (ball.trail.length > 16) ball.trail.shift();
 
+      const previousY = ball.y;
       ball.x += ball.vx * deltaSeconds;
       ball.y += ball.vy * deltaSeconds;
 
       if (isSpectralBallCollidingWithTank(ball)) {
         ball.state = "expired";
+        spectralImpactManager.createTankImpact(ball.x, ball.y, ball.radius);
+        tank.spectralHitFlash = 0.42;
         damageTank(ball.damage);
         return;
       }
 
+      if (previousY < debug.groundY && ball.y >= debug.groundY) {
+        ball.state = "expired";
+        spectralImpactManager.createGroundImpact(
+          Math.max(ball.radius, Math.min(LOGICAL_WIDTH - ball.radius, ball.x)),
+          debug.groundY,
+          ball.radius,
+        );
+        return;
+      }
+
       if (hasSpectralBallExited(ball)) {
+        if (ball.y >= debug.groundY - ball.radius * 1.5) {
+          spectralImpactManager.createGroundImpact(
+            Math.max(ball.radius, Math.min(LOGICAL_WIDTH - ball.radius, ball.x)),
+            debug.groundY,
+            ball.radius,
+          );
+        }
         ball.state = "expired";
       }
     });
@@ -2376,6 +3062,7 @@ const bossManager = {
 
   updateBossFire(boss, deltaSeconds) {
     if (!boss.hasEnteredCombat) return;
+    if (boss.visible === false) return;
 
     const config = getCurrentBossConfig();
     boss.laserCooldown -= deltaSeconds;
@@ -2459,6 +3146,7 @@ const bossManager = {
   damageBoss(damage) {
     const boss = this.boss;
     if (!boss || this.defeated || boss.deathProcessed) return;
+    if (boss.visible === false) return;
 
     boss.hp = Math.max(0, boss.hp - damage);
     this.tryReleaseBossHealthDrop(boss);
@@ -2537,6 +3225,7 @@ const bossManager = {
     this.defeated = false;
     this.lastShot = null;
     this.attackCounter = 0;
+    this.asymptoteRays = [];
   },
 };
 
@@ -2591,6 +3280,11 @@ function getCurrentBossConfig() {
   return getCurrentLevelConfig().boss;
 }
 
+function getBossSecantAttackConfig() {
+  const specialConfig = getCurrentBossConfig().specialAttack;
+  return specialConfig?.type === "secantAsymptote" ? specialConfig : null;
+}
+
 function getBossAttackPattern(config = getCurrentBossConfig()) {
   return config.attackPattern;
 }
@@ -2633,6 +3327,10 @@ function getCurrentCadenceCoreConfig() {
   return getCurrentLevelConfig().powerUps?.cadenceCore ?? null;
 }
 
+function getCurrentDamageCoreConfig() {
+  return getCurrentLevelConfig().powerUps?.damageCore ?? null;
+}
+
 function getCurrentRocketUpgradeConfig() {
   return getCurrentLevelConfig().powerUps?.rocketUpgrade ?? null;
 }
@@ -2655,6 +3353,7 @@ function positionSpriteFromCenter(sprite, entity) {
   sprite.style.top = `${(entity.y - entity.height / 2) * scale}px`;
   sprite.style.width = `${entity.width * scale}px`;
   sprite.style.height = `${entity.height * scale}px`;
+  sprite.style.opacity = entity.visible === false ? "0" : String(entity.visibilityAlpha ?? 1);
 }
 
 function positionSpriteFromAnchor(sprite, entity) {
@@ -2663,6 +3362,9 @@ function positionSpriteFromAnchor(sprite, entity) {
   sprite.style.top = `${(entity.y + entity.offsetY) * scale}px`;
   sprite.style.width = `${entity.width * scale}px`;
   sprite.style.height = `${entity.height * scale}px`;
+  sprite.style.opacity = entity.visible === false ? "0" : String(entity.visibilityAlpha ?? 1);
+  sprite.style.transformOrigin = "center center";
+  sprite.style.transform = entity.flipWhenMovingRight && entity.direction > 0 ? "scaleX(-1)" : "";
 }
 
 function isGameplayActive() {
@@ -2782,6 +3484,7 @@ function resetCheckpointState() {
   checkpointState.stage = STAGES.INICIO;
   checkpointState.weaponLevel = STARTING_WEAPON_LEVEL;
   checkpointState.weaponFireInterval = PROJECTILE_FIRE_INTERVAL;
+  checkpointState.projectileDamage = BASE_PROJECTILE_DAMAGE;
 }
 
 function getLevelHeavyCheckpointKill(level = currentLevel) {
@@ -2819,6 +3522,7 @@ function trySaveLevelCheckpoint() {
   checkpointState.stage = getStageForNormalKillCount(currentLevel, checkpointKill);
   checkpointState.weaponLevel = weapon.level;
   checkpointState.weaponFireInterval = weapon.fireInterval;
+  checkpointState.projectileDamage = weapon.projectileDamage;
 }
 
 function canRestoreLevelCheckpoint() {
@@ -2847,9 +3551,12 @@ function restoreLevelCheckpoint() {
   tank.maxHp = TANK_MAX_HP;
   tank.alive = true;
   tank.visible = true;
+  tank.asymptoteHitFlash = 0;
+  tank.spectralHitFlash = 0;
 
   weapon.level = checkpoint.weaponLevel;
   weapon.fireInterval = checkpoint.weaponFireInterval;
+  weapon.projectileDamage = checkpoint.projectileDamage;
   applyStartingRocketLauncherState();
   enemyManager.spawnTimer = 0;
   hideAllOverlays();
@@ -2866,6 +3573,8 @@ function cleanupCurrentAttempt() {
   explosionManager.clear();
   enemyDeathVisualManager.clear();
   laserTankImpactManager.clear();
+  asymptoteImpactManager.clear();
+  spectralImpactManager.clear();
   projectileImpactManager.clear();
   rocketExplosionManager.clear();
   groundLaserImpactFlashManager.clear();
@@ -2886,6 +3595,8 @@ function cleanupCompletedLevel() {
   explosionManager.clear();
   enemyDeathVisualManager.clear();
   laserTankImpactManager.clear();
+  asymptoteImpactManager.clear();
+  spectralImpactManager.clear();
   projectileImpactManager.clear();
   rocketExplosionManager.clear();
   groundLaserImpactFlashManager.clear();
@@ -2942,9 +3653,12 @@ function resetCurrentLevelState({ resetScore = true } = {}) {
   tank.maxHp = TANK_MAX_HP;
   tank.alive = true;
   tank.visible = true;
+  tank.asymptoteHitFlash = 0;
+  tank.spectralHitFlash = 0;
 
   weapon.level = startConfig.weaponLevel;
   weapon.fireInterval = startConfig.projectileFireInterval ?? PROJECTILE_FIRE_INTERVAL;
+  weapon.projectileDamage = startConfig.projectileDamage ?? BASE_PROJECTILE_DAMAGE;
   applyStartingRocketLauncherState();
   enemyManager.spawnTimer = 0;
 }
@@ -2958,6 +3672,7 @@ function applyStartingRocketLauncherState() {
     rockets: startRocketConfig.rockets,
     rocketDamage: startRocketConfig.rocketDamage,
     cooldown: startRocketConfig.cooldown,
+    launchInterval: startRocketConfig.launchInterval,
   });
 }
 
@@ -2994,6 +3709,8 @@ function goToNextLevelPreview() {
   gameState.status = GAME_STATES.LEVEL_PREVIEW;
   tank.alive = true;
   tank.visible = true;
+  tank.asymptoteHitFlash = 0;
+  tank.spectralHitFlash = 0;
   hideLevelComplete();
   hideGameOver();
   hideMainMenu();
@@ -3039,6 +3756,7 @@ function getDebugPresentationStageConfig(stageName, level = currentLevel) {
     normalEnemiesDestroyed,
     score: normalEnemiesDestroyed * SCORE_CONFIG.normalEnemyDestroyed,
     weaponLevel: debugConfig.weaponLevelByStage?.[stageName] ?? levelConfig.start.weaponLevel,
+    projectileDamage: levelConfig.start.projectileDamage ?? BASE_PROJECTILE_DAMAGE,
     tankHp: levelConfig.start.tankHp,
   };
 }
@@ -3061,14 +3779,18 @@ function applyDebugPresentationStage(stageName) {
   tank.maxHp = TANK_MAX_HP;
   tank.alive = true;
   tank.visible = true;
+  tank.asymptoteHitFlash = 0;
+  tank.spectralHitFlash = 0;
 
   weapon.level = config.weaponLevel;
   weapon.fireInterval = LEVEL_CONFIG[currentLevel].start.projectileFireInterval ?? PROJECTILE_FIRE_INTERVAL;
+  weapon.projectileDamage = config.projectileDamage;
   applyStartingRocketLauncherState();
   enemyManager.spawnTimer = 0;
   configureDebugPresentationHeavyState(config);
   configureDebugPresentationRocketState(config);
   configureDebugPresentationCadenceState(config);
+  configureDebugPresentationDamageState(config);
   configureDebugPresentationRocketUpgradeState(config);
 
   if (config.stage === STAGES.BOSS) {
@@ -3108,6 +3830,17 @@ function configureDebugPresentationCadenceState(config) {
   powerUpManager.cadenceCore.active = null;
 
   if (cadenceWasAvailable) weapon.fireInterval = cadenceConfig.fireInterval;
+}
+
+function configureDebugPresentationDamageState(config) {
+  const damageConfig = LEVEL_CONFIG[config.level].powerUps?.damageCore;
+  const damageWasAvailable = Boolean(damageConfig?.enabled && config.normalEnemiesDestroyed >= damageConfig.normalKillTrigger);
+
+  powerUpManager.damageCore.generated = damageWasAvailable;
+  powerUpManager.damageCore.collected = damageWasAvailable;
+  powerUpManager.damageCore.active = null;
+
+  if (damageWasAvailable) weapon.projectileDamage = damageConfig.projectileDamage;
 }
 
 function configureDebugPresentationRocketUpgradeState(config) {
@@ -3157,6 +3890,8 @@ function updateDebugPresentationPanelVisibility() {
 }
 
 function updateTank(deltaSeconds) {
+  tank.asymptoteHitFlash = Math.max(0, tank.asymptoteHitFlash - deltaSeconds);
+  tank.spectralHitFlash = Math.max(0, tank.spectralHitFlash - deltaSeconds);
   const direction = Number(input.right) - Number(input.left);
   const previousX = tank.x;
   const speedMultiplier = input.fire ? 1 : TANK_MOVE_SPEED_NOT_FIRING_MULTIPLIER;
@@ -3234,20 +3969,62 @@ function getActiveMuzzlePoints() {
 }
 
 function calculateTrajectoryY(entity, x) {
-  if (entity.trajectory.type === "sinCos") {
-    const sinAngle = (2 * Math.PI / entity.trajectory.sinPeriod) * x + (entity.trajectory.sinPhase ?? 0);
-    const cosAngle = (2 * Math.PI / entity.trajectory.cosPeriod) * x + (entity.trajectory.cosPhase ?? 0);
-    return (
-      entity.trajectory.midline +
-      entity.trajectory.sinAmplitude * Math.sin(sinAngle) +
-      entity.trajectory.cosAmplitude * Math.cos(cosAngle)
-    );
+  return writeTrajectorySample(entity.trajectory, x, trajectorySampleScratch).y;
+}
+
+function updateTrajectoryState(entity, x) {
+  const sample = writeTrajectorySample(entity.trajectory, x, trajectorySampleScratch);
+  entity.y = sample.y;
+  entity.visible = sample.valid;
+  entity.visibilityAlpha = sample.alpha;
+}
+
+function getTrajectorySample(trajectory, x) {
+  return writeTrajectorySample(trajectory, x, { y: 0, valid: true, alpha: 1 });
+}
+
+function writeTrajectorySample(trajectory, x, output) {
+  if (trajectory.type === "sinCos") {
+    const sinAngle = (2 * Math.PI / trajectory.sinPeriod) * x + (trajectory.sinPhase ?? 0);
+    const cosAngle = (2 * Math.PI / trajectory.cosPeriod) * x + (trajectory.cosPhase ?? 0);
+    output.y = trajectory.midline + trajectory.sinAmplitude * Math.sin(sinAngle) + trajectory.cosAmplitude * Math.cos(cosAngle);
+    output.valid = true;
+    output.alpha = 1;
+    return output;
   }
 
-  const angle = (2 * Math.PI / entity.trajectory.period) * x;
-  const phase = entity.trajectory.phase ?? 0;
-  const wave = entity.trajectory.type === "cos" ? Math.cos(angle + phase) : Math.sin(angle + phase);
-  return entity.trajectory.midline + entity.trajectory.amplitude * wave;
+  if (trajectory.type === "secant") {
+    const divisor = trajectory.divisor ?? 300;
+    const angle = (Math.PI / divisor) * x + (trajectory.phase ?? 0);
+    const cosValue = Math.cos(angle);
+    const absCos = Math.abs(cosValue);
+    const minAbsCos = trajectory.minAbsCos ?? SECANT_MIN_ABS_COS;
+    const fadeAbsCos = trajectory.fadeAbsCos ?? SECANT_FADE_ABS_COS;
+    const maxOffset = trajectory.maxOffset ?? SECANT_SAFE_OFFSET_LIMIT;
+    const rawOffset = absCos < 0.0001 ? Math.sign(cosValue || 1) * maxOffset : trajectory.amplitude / cosValue;
+    const safeOffset = Math.max(-maxOffset, Math.min(maxOffset, rawOffset));
+    const validMinY = trajectory.validMinY ?? -Infinity;
+    const validMaxY = trajectory.validMaxY ?? Infinity;
+    const rawY = trajectory.midline + safeOffset;
+    const y = Math.max(validMinY, Math.min(validMaxY, rawY));
+    const valid = Number.isFinite(rawY) && absCos >= minAbsCos && rawY >= validMinY && rawY <= validMaxY;
+    const alpha = valid
+      ? Math.max(0.18, Math.min(1, (absCos - minAbsCos) / Math.max(0.001, fadeAbsCos - minAbsCos)))
+      : 0;
+
+    output.y = y;
+    output.valid = valid;
+    output.alpha = alpha;
+    return output;
+  }
+
+  const angle = (2 * Math.PI / trajectory.period) * x;
+  const phase = trajectory.phase ?? 0;
+  const wave = trajectory.type === "cos" ? Math.cos(angle + phase) : Math.sin(angle + phase);
+  output.y = trajectory.midline + trajectory.amplitude * wave;
+  output.valid = true;
+  output.alpha = 1;
+  return output;
 }
 
 function updateEnemy(enemy, deltaSeconds) {
@@ -3267,7 +4044,7 @@ function updateEnemy(enemy, deltaSeconds) {
     enemy.direction *= -1;
   }
 
-  enemy.y = calculateTrajectoryY(enemy, enemy.x);
+  updateTrajectoryState(enemy, enemy.x);
 }
 
 function updateBoss(boss, deltaSeconds) {
@@ -3287,7 +4064,7 @@ function updateBoss(boss, deltaSeconds) {
     boss.direction *= -1;
   }
 
-  boss.y = calculateTrajectoryY(boss, boss.x);
+  updateTrajectoryState(boss, boss.x);
 }
 
 function handleProjectileEnemyCollisions() {
@@ -3301,7 +4078,7 @@ function handleProjectileEnemyCollisions() {
       if (bossImpactPoint) {
         projectileManager.projectiles.splice(projectileIndex, 1);
         projectileImpactManager.createImpact(bossImpactPoint.x, bossImpactPoint.y, BOSS_PROJECTILE_IMPACT_RADIUS);
-        bossManager.damageBoss(weapon.projectileDamage);
+        bossManager.damageBoss(projectile.damage ?? weapon.projectileDamage);
       }
       continue;
     }
@@ -3315,7 +4092,7 @@ function handleProjectileEnemyCollisions() {
         getNormalEnemyProjectileImpactRadius(enemy),
       );
     }
-    enemy.hp -= weapon.projectileDamage;
+    enemy.hp -= projectile.damage ?? weapon.projectileDamage;
 
     if (enemy.hp <= 0) {
       explosionManager.createExplosion(enemy.x, enemy.y);
@@ -3333,10 +4110,12 @@ function registerNormalEnemyDestroyed(enemy) {
   gameState.score += SCORE_CONFIG.normalEnemyDestroyed;
   gameState.normalEnemiesDestroyed += 1;
   enemy.scoreAwarded = true;
+  healthDropManager.tryCreateScriptedFromNormalKill(enemy, gameState.normalEnemiesDestroyed);
   trySaveLevelCheckpoint();
   powerUpManager.trySpawnHeavyMachineGun();
   powerUpManager.trySpawnRocketLauncher();
   powerUpManager.trySpawnCadenceCore();
+  powerUpManager.trySpawnDamageCore();
   powerUpManager.trySpawnRocketUpgrade();
   evaluateStageProgression();
 }
@@ -3360,9 +4139,10 @@ function enterStage(stageName) {
 
   gameState.stage = stageName;
   enemyManager.spawnTimer = getCurrentStageConfig().spawnInterval ?? 0;
-  if (currentLevel === 4 && stageName === STAGES.NUDO) enemyManager.nextTrajectoryVariantIndex = 0;
+  if ((currentLevel === 4 || currentLevel === 5) && stageName === STAGES.NUDO) enemyManager.nextTrajectoryVariantIndex = 0;
 
   if (stageName === STAGES.BOSS) {
+    healthDropManager.tryCreatePreBossDrop();
     bossManager.tryCreateBoss();
     return;
   }
@@ -3393,6 +4173,8 @@ function getProjectileTargetBounds(target) {
 }
 
 function getProjectileEnemyOverlap(projectile, enemy) {
+  if (enemy.visible === false) return null;
+
   const projectileLeft = projectile.x - projectile.width / 2;
   const projectileRight = projectile.x + projectile.width / 2;
   const projectileTop = projectile.y;
@@ -3440,6 +4222,8 @@ function rotateAngleToward(currentAngle, desiredAngle, maxStep) {
 }
 
 function isCircleOverlappingTarget(x, y, radius, target) {
+  if (target.visible === false) return false;
+
   const bounds = getProjectileTargetBounds(target);
   const closestX = Math.max(bounds.left, Math.min(x, bounds.right));
   const closestY = Math.max(bounds.top, Math.min(y, bounds.bottom));
@@ -3640,7 +4424,14 @@ function hasLaserExited(laser) {
 
 function getTrajectoryEquation(trajectory) {
   if (trajectory.type === "sinCos") {
-    return `y = ${trajectory.midline} + ${trajectory.sinAmplitude} * Math.sin((2 * Math.PI / ${trajectory.sinPeriod}) * x) + ${trajectory.cosAmplitude} * Math.cos((2 * Math.PI / ${trajectory.cosPeriod}) * x)`;
+    const sinPhase = trajectory.sinPhase ? ` + ${formatPhaseValue(trajectory.sinPhase)}` : "";
+    const cosPhase = trajectory.cosPhase ? ` + ${formatPhaseValue(trajectory.cosPhase)}` : "";
+    return `y = ${trajectory.midline} + ${trajectory.sinAmplitude} * Math.sin((2 * Math.PI / ${trajectory.sinPeriod}) * x${sinPhase}) + ${trajectory.cosAmplitude} * Math.cos((2 * Math.PI / ${trajectory.cosPeriod}) * x${cosPhase})`;
+  }
+
+  if (trajectory.type === "secant") {
+    const phase = trajectory.phase ? ` + ${formatPhaseValue(trajectory.phase)}` : "";
+    return `y = ${trajectory.midline} + ${trajectory.amplitude} / Math.cos((Math.PI / ${trajectory.divisor}) * x${phase})`;
   }
 
   const waveFunction = trajectory.type === "cos" ? "Math.cos" : "Math.sin";
@@ -3658,7 +4449,11 @@ function formatPhaseValue(phase) {
 
 function getTrajectoryDebugParams(trajectory) {
   if (trajectory.type === "sinCos") {
-    return `D=${trajectory.midline} | As=${trajectory.sinAmplitude} Ts=${trajectory.sinPeriod} | Ac=${trajectory.cosAmplitude} Tc=${trajectory.cosPeriod}`;
+    return `D=${trajectory.midline} | As=${trajectory.sinAmplitude} Ts=${trajectory.sinPeriod} Fs=${formatPhaseValue(trajectory.sinPhase ?? 0)} | Ac=${trajectory.cosAmplitude} Tc=${trajectory.cosPeriod}`;
+  }
+
+  if (trajectory.type === "secant") {
+    return `D=${trajectory.midline} | A=${trajectory.amplitude} | div=${trajectory.divisor} | Y=${trajectory.validMinY}-${trajectory.validMaxY} | minCos=${trajectory.minAbsCos}`;
   }
 
   return `A=${trajectory.amplitude} | D=${trajectory.midline} | Periodo=${trajectory.period} | Fase=${formatPhaseValue(trajectory.phase ?? 0)}`;
@@ -3668,11 +4463,11 @@ function getActiveTrajectoryConfigs() {
   const configs = new Map();
 
   enemyManager.enemies.forEach((enemy) => {
-    const phase = enemy.trajectory.phase ?? 0;
-    const key = `${enemy.typeKey}-${enemy.midline}-${phase}`;
+    const phase = enemy.trajectory.phase ?? enemy.trajectory.sinPhase ?? 0;
+    const key = `${enemy.typeKey}-${enemy.midline}-${enemy.trajectory.type}-${phase}`;
     if (configs.has(key)) return;
     configs.set(key, {
-      color: enemy.color,
+      color: enemy.visible === false ? "rgba(255, 95, 234, 0.45)" : enemy.color,
       label: `${enemy.trajectory.type} carril ${enemy.midline} fase ${formatPhaseValue(phase)}`,
       trajectory: enemy.trajectory,
     });
@@ -3769,6 +4564,9 @@ function drawDebug() {
   drawDebugText(`weapon.level: ${weapon.level}`, panelX, panelY);
   drawDebugText(`Rocket listo: ${rocketManager.unlocked && rocketManager.cooldown <= 0}`, panelX + 250, panelY);
   panelY += 20;
+  drawDebugText(`projectileDamage: ${weapon.projectileDamage}`, panelX, panelY);
+  drawDebugText(`fireInterval: ${weapon.fireInterval}`, panelX + 250, panelY);
+  panelY += 20;
   drawDebugText(`Rocket desbloqueado: ${rocketManager.unlocked}`, panelX, panelY);
   drawDebugText(`Misiles activos: ${rocketManager.missiles.length}`, panelX + 250, panelY);
   panelY += 20;
@@ -3791,7 +4589,7 @@ function drawDebug() {
     panelY += 20;
     drawDebugText(`Boss ecuacion: ${getTrajectoryEquation(bossTrajectory)}`, panelX, panelY);
     panelY += 20;
-    drawDebugText(`Boss X=${boss ? boss.x.toFixed(1) : "n/a"} | Y=${boss ? boss.y.toFixed(1) : "n/a"} | dir=${boss ? boss.direction : "n/a"}`, panelX, panelY);
+    drawDebugText(`Boss X=${boss ? boss.x.toFixed(1) : "n/a"} | Y=${boss ? boss.y.toFixed(1) : "n/a"} | dir=${boss ? boss.direction : "n/a"} | visible=${boss ? boss.visible !== false : "n/a"}`, panelX, panelY);
     panelY += 20;
     drawDebugText(`Boss ataques: ${bossManager.attackCounter}`, panelX, panelY);
     drawDebugText(`Proximo ataque: ${getBossNextAttackType()}`, panelX + 250, panelY);
@@ -3817,7 +4615,7 @@ function drawDebug() {
   enemyManager.enemies.forEach((enemy) => {
     context.fillStyle = enemy.color;
     drawDebugText(
-      `${enemy.label}: tipo=${enemy.trajectory.type}, X=${enemy.x.toFixed(1)}, Y=${enemy.y.toFixed(1)}, HP=${enemy.hp}/${enemy.maxHp}, midline=${enemy.midline}, dir=${enemy.direction}`,
+      `${enemy.label}: tipo=${enemy.trajectory.type}, X=${enemy.x.toFixed(1)}, Y=${enemy.y.toFixed(1)}, HP=${enemy.hp}/${enemy.maxHp}, midline=${enemy.midline}, dir=${enemy.direction}, visible=${enemy.visible !== false}`,
       panelX,
       panelY,
     );
@@ -3921,15 +4719,22 @@ function drawProjectiles() {
     const x = projectile.x - projectile.width / 2;
     const outlineWidth = projectile.width + 4;
     const outlineX = projectile.x - outlineWidth / 2;
+    const isDamageUpgraded = (projectile.damage ?? BASE_PROJECTILE_DAMAGE) > BASE_PROJECTILE_DAMAGE;
     const gradient = context.createLinearGradient(projectile.x, projectile.y, projectile.x, projectile.y + projectile.height);
-    gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
-    gradient.addColorStop(0.45, "rgba(255, 242, 115, 1)");
-    gradient.addColorStop(1, "rgba(255, 132, 38, 0.45)");
+    if (isDamageUpgraded) {
+      gradient.addColorStop(0, "rgba(255, 245, 230, 1)");
+      gradient.addColorStop(0.45, "rgba(255, 64, 48, 1)");
+      gradient.addColorStop(1, "rgba(170, 0, 0, 0.55)");
+    } else {
+      gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+      gradient.addColorStop(0.45, "rgba(255, 242, 115, 1)");
+      gradient.addColorStop(1, "rgba(255, 132, 38, 0.45)");
+    }
 
     context.fillStyle = "rgba(0, 0, 0, 0.58)";
     context.fillRect(outlineX, projectile.y - 1, outlineWidth, projectile.height + 2);
 
-    context.fillStyle = "rgba(255, 70, 20, 0.28)";
+    context.fillStyle = isDamageUpgraded ? "rgba(255, 20, 20, 0.34)" : "rgba(255, 70, 20, 0.28)";
     context.fillRect(projectile.x - projectile.width, projectile.y - 2, projectile.width * 2, projectile.height + 4);
 
     context.fillStyle = gradient;
@@ -4481,6 +5286,7 @@ function drawBossSpectralBalls() {
 function drawCanvasPowerUps() {
   context.save();
   if (powerUpManager.cadenceCore.active) drawCadenceCorePowerUp(powerUpManager.cadenceCore.active);
+  if (powerUpManager.damageCore.active) drawDamageCorePowerUp(powerUpManager.damageCore.active);
   context.restore();
 }
 
@@ -4556,6 +5362,13 @@ function getBossSpecialDebugState() {
     if (!attack) return `cooldown ${boss.specialAttackCooldown.toFixed(2)}s`;
     return `${attack.state} bola ${Math.min(attack.nextShotIndex + 1, attack.balls.length)}/${attack.balls.length}`;
   }
+  if (specialConfig.type === "secantAsymptote") {
+    if (boss.secantAttack) {
+      const rays = boss.secantAttack.nextRayIndex;
+      return `secante ${boss.secantAttack.remaining.toFixed(2)}s | rayos ${rays}/${specialConfig.asymptoteRays.positions.length} | visible=${boss.visible !== false}`;
+    }
+    return `cooldown ${boss.specialAttackCooldown.toFixed(2)}s`;
+  }
   if (boss.specialTelegraphRemaining > 0) return `telegraph ${boss.specialTelegraphRemaining.toFixed(2)}s`;
   return `cooldown ${boss.specialAttackCooldown.toFixed(2)}s`;
 }
@@ -4564,10 +5377,253 @@ function formatBossSpecialFanAngles() {
   const specialConfig = getCurrentBossConfig().specialAttack;
   if (!specialConfig) return "n/a";
   if (specialConfig.type === "spectralLine") return `${specialConfig.projectileCount} bolas | ${specialConfig.shotInterval}s`;
+  if (specialConfig.type === "secantAsymptote") return `secante | rayos ${specialConfig.asymptoteRays.positions.join(", ")} | dano ${specialConfig.asymptoteRays.damage}`;
 
   const startDegrees = specialConfig.startAngle * 180 / Math.PI;
   const endDegrees = specialConfig.endAngle * 180 / Math.PI;
   return `${specialConfig.projectileCount} lasers | ${startDegrees.toFixed(0)}-${endDegrees.toFixed(0)} grados`;
+}
+
+function drawBossAsymptoteRays() {
+  if (!bossManager.asymptoteRays.length) return;
+
+  context.save();
+  const rayConfig = getBossSecantAttackConfig()?.asymptoteRays;
+  const telegraphDuration = rayConfig?.telegraphDuration ?? 1;
+  const activeDuration = rayConfig?.activeDuration ?? 1;
+  bossManager.asymptoteRays.forEach((ray) => {
+    const halfWidth = ray.width / 2;
+    const x = ray.x - halfWidth;
+
+    if (ray.state === "telegraph") {
+      const progress = 1 - Math.max(0, ray.telegraphRemaining / telegraphDuration);
+      const pulse = 0.45 + Math.sin(progress * Math.PI * 8) * 0.18;
+
+      context.globalAlpha = 0.42 + pulse * 0.32;
+      context.fillStyle = "rgba(255, 58, 226, 0.18)";
+      context.fillRect(x, 0, ray.width, LOGICAL_HEIGHT);
+
+      context.globalAlpha = 0.9;
+      context.strokeStyle = "rgba(255, 238, 136, 0.9)";
+      context.lineWidth = 3;
+      context.setLineDash([16, 10]);
+      context.beginPath();
+      context.moveTo(ray.x, 0);
+      context.lineTo(ray.x, LOGICAL_HEIGHT);
+      context.stroke();
+      context.setLineDash([]);
+
+      context.fillStyle = "rgba(255, 255, 230, 0.88)";
+      context.font = "18px Consolas, monospace";
+      context.fillText("ASINTOTA", ray.x - 45, 76);
+      return;
+    }
+
+    const progress = Math.max(0, ray.activeRemaining / activeDuration);
+    const coreWidth = ray.width * (0.28 + 0.18 * Math.sin(progress * Math.PI * 10));
+    const gradient = context.createLinearGradient(ray.x, 0, ray.x, LOGICAL_HEIGHT);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 0.92)");
+    gradient.addColorStop(0.45, "rgba(255, 74, 230, 0.88)");
+    gradient.addColorStop(1, "rgba(95, 236, 255, 0.82)");
+
+    context.globalAlpha = 0.95;
+    context.fillStyle = "rgba(140, 34, 255, 0.25)";
+    context.fillRect(x - ray.width * 0.35, 0, ray.width * 1.7, LOGICAL_HEIGHT);
+
+    context.fillStyle = gradient;
+    context.fillRect(ray.x - coreWidth / 2, 0, coreWidth, LOGICAL_HEIGHT);
+
+    context.strokeStyle = "rgba(255, 255, 235, 0.95)";
+    context.lineWidth = 4;
+    context.beginPath();
+    context.moveTo(ray.x, 0);
+    context.lineTo(ray.x, LOGICAL_HEIGHT);
+    context.stroke();
+  });
+  context.restore();
+}
+
+function drawAsymptoteImpacts() {
+  if (!asymptoteImpactManager.impacts.length) return;
+
+  context.save();
+  asymptoteImpactManager.impacts.forEach((impact) => {
+    const progress = Math.max(0, impact.remainingTime / impact.duration);
+    const age = 1 - progress;
+    const alpha = progress;
+    const radius = impact.width * (0.28 + age * 0.62);
+
+    if (impact.type === "ground") {
+      const flashRadius = radius * 2.45;
+      const glow = context.createRadialGradient(impact.x, impact.y, 0, impact.x, impact.y, flashRadius);
+      glow.addColorStop(0, `rgba(255, 255, 245, ${1 * alpha})`);
+      glow.addColorStop(0.22, `rgba(255, 74, 230, ${0.82 * alpha})`);
+      glow.addColorStop(0.62, `rgba(95, 236, 255, ${0.34 * alpha})`);
+      glow.addColorStop(1, "rgba(120, 70, 255, 0)");
+
+      context.fillStyle = glow;
+      context.beginPath();
+      context.ellipse(impact.x, impact.y, flashRadius * 1.45, flashRadius * 0.38, 0, 0, 2 * Math.PI);
+      context.fill();
+
+      context.strokeStyle = `rgba(255, 255, 235, ${0.95 * alpha})`;
+      context.lineWidth = 8 * alpha;
+      context.beginPath();
+      context.moveTo(impact.x - flashRadius * 0.7, impact.y);
+      context.lineTo(impact.x + flashRadius * 0.7, impact.y);
+      context.stroke();
+
+      context.strokeStyle = `rgba(95, 236, 255, ${0.9 * alpha})`;
+      context.lineWidth = 7 * alpha;
+      context.beginPath();
+      context.arc(impact.x, impact.y, radius * 1.38, Math.PI * 1.04, Math.PI * 1.96);
+      context.stroke();
+    } else {
+      const tankGlow = context.createRadialGradient(impact.x, impact.y, 0, impact.x, impact.y, radius * 1.85);
+      tankGlow.addColorStop(0, `rgba(255, 255, 245, ${0.95 * alpha})`);
+      tankGlow.addColorStop(0.34, `rgba(255, 74, 230, ${0.76 * alpha})`);
+      tankGlow.addColorStop(1, "rgba(95, 236, 255, 0)");
+      context.fillStyle = tankGlow;
+      context.beginPath();
+      context.arc(impact.x, impact.y, radius * 1.85, 0, 2 * Math.PI);
+      context.fill();
+
+      context.strokeStyle = `rgba(255, 255, 235, ${0.95 * alpha})`;
+      context.lineWidth = 8 * alpha;
+      context.beginPath();
+      context.moveTo(impact.x - radius, impact.y);
+      context.lineTo(impact.x + radius, impact.y);
+      context.moveTo(impact.x, impact.y - radius);
+      context.lineTo(impact.x, impact.y + radius);
+      context.stroke();
+
+      context.strokeStyle = `rgba(255, 74, 230, ${0.85 * alpha})`;
+      context.lineWidth = 4 * alpha;
+      context.beginPath();
+      context.arc(impact.x, impact.y, radius * 1.15, 0, 2 * Math.PI);
+      context.stroke();
+    }
+
+    impact.particles.forEach((particle) => {
+      context.fillStyle = particle.vy < 0
+        ? `rgba(95, 236, 255, ${0.88 * alpha})`
+        : `rgba(255, 74, 230, ${0.78 * alpha})`;
+      context.beginPath();
+      context.arc(particle.x, particle.y, particle.radius * (0.86 + age * 0.42), 0, 2 * Math.PI);
+      context.fill();
+    });
+  });
+  context.restore();
+}
+
+function drawSpectralImpacts() {
+  if (!spectralImpactManager.impacts.length) return;
+
+  context.save();
+  spectralImpactManager.impacts.forEach((impact) => {
+    const progress = Math.max(0, impact.remainingTime / impact.duration);
+    const age = 1 - progress;
+    const alpha = progress;
+    const radius = impact.radius * (1.1 + age * 2.1);
+
+    const glow = context.createRadialGradient(impact.x, impact.y, 0, impact.x, impact.y, radius * 1.8);
+    glow.addColorStop(0, `rgba(240, 250, 255, ${0.9 * alpha})`);
+    glow.addColorStop(0.32, `rgba(120, 205, 255, ${0.62 * alpha})`);
+    glow.addColorStop(0.72, `rgba(150, 80, 255, ${0.28 * alpha})`);
+    glow.addColorStop(1, "rgba(150, 80, 255, 0)");
+    context.fillStyle = glow;
+    context.beginPath();
+    if (impact.type === "ground") {
+      context.ellipse(impact.x, impact.y, radius * 1.55, radius * 0.42, 0, 0, 2 * Math.PI);
+    } else {
+      context.arc(impact.x, impact.y, radius * 1.25, 0, 2 * Math.PI);
+    }
+    context.fill();
+
+    context.lineCap = "round";
+    impact.rays.forEach((ray) => {
+      const start = radius * 0.28;
+      const end = ray.length * (0.55 + age * 0.55);
+      context.strokeStyle = `rgba(210, 244, 255, ${0.82 * alpha})`;
+      context.lineWidth = Math.max(1.5, 4.5 * alpha);
+      context.beginPath();
+      context.moveTo(
+        impact.x + Math.cos(ray.angle) * start,
+        impact.y + Math.sin(ray.angle) * start,
+      );
+      context.lineTo(
+        impact.x + Math.cos(ray.angle) * end,
+        impact.y + Math.sin(ray.angle) * end,
+      );
+      context.stroke();
+    });
+
+    context.strokeStyle = `rgba(154, 96, 255, ${0.9 * alpha})`;
+    context.lineWidth = 4 * alpha;
+    context.beginPath();
+    context.arc(impact.x, impact.y, radius * 0.72, 0, 2 * Math.PI);
+    context.stroke();
+
+    impact.particles.forEach((particle) => {
+      context.fillStyle = particle.mix > 0.45
+        ? `rgba(116, 200, 255, ${0.8 * alpha})`
+        : `rgba(168, 96, 255, ${0.72 * alpha})`;
+      context.beginPath();
+      context.arc(particle.x, particle.y, particle.radius * (0.82 + age * 0.38), 0, 2 * Math.PI);
+      context.fill();
+    });
+  });
+  context.restore();
+}
+
+function drawDamageCorePowerUp(powerUp) {
+  const pulse = 0.88 + Math.sin(powerUp.pulseTime * 6.5) * 0.12;
+  const half = powerUp.width * 0.5;
+  const coreRadius = powerUp.width * 0.24 * pulse;
+
+  context.save();
+  context.translate(powerUp.x, powerUp.y);
+  context.rotate(-powerUp.pulseTime * 2.1);
+
+  context.fillStyle = "rgba(0, 0, 0, 0.58)";
+  context.beginPath();
+  context.rect(-half, -half, powerUp.width, powerUp.height);
+  context.fill();
+
+  context.strokeStyle = "rgba(255, 74, 74, 0.9)";
+  context.lineWidth = 4;
+  context.strokeRect(-half + 4, -half + 4, powerUp.width - 8, powerUp.height - 8);
+
+  context.strokeStyle = "rgba(255, 240, 130, 0.88)";
+  context.lineWidth = 3;
+  for (let index = 0; index < 4; index += 1) {
+    const angle = Math.PI / 4 + index * Math.PI / 2;
+    context.beginPath();
+    context.moveTo(Math.cos(angle) * powerUp.width * 0.18, Math.sin(angle) * powerUp.width * 0.18);
+    context.lineTo(Math.cos(angle) * powerUp.width * 0.45, Math.sin(angle) * powerUp.width * 0.45);
+    context.stroke();
+  }
+
+  const gradient = context.createRadialGradient(0, 0, 0, 0, 0, coreRadius * 1.9);
+  gradient.addColorStop(0, "rgba(255, 255, 245, 1)");
+  gradient.addColorStop(0.45, "rgba(255, 76, 52, 0.95)");
+  gradient.addColorStop(1, "rgba(255, 214, 64, 0)");
+  context.fillStyle = gradient;
+  context.beginPath();
+  context.arc(0, 0, coreRadius * 1.9, 0, 2 * Math.PI);
+  context.fill();
+
+  context.fillStyle = "#fff2b0";
+  context.font = "22px Consolas, monospace";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText("+D", 0, 1);
+  context.restore();
+}
+
+function isTankCollidingWithAsymptoteRay(ray) {
+  const tankCenterX = tank.x + tank.width / 2;
+  return Math.abs(tankCenterX - ray.x) <= (ray.width / 2 + tank.width * 0.32);
 }
 
 function formatBossPlayerHealthDropsDebug(boss) {
@@ -4674,6 +5730,8 @@ function drawTankDust() {
 function drawEnemyHealthBars() {
   context.save();
   enemyManager.enemies.forEach((enemy) => {
+    if (enemy.visible === false) return;
+
     const barWidth = enemy.width * 0.72;
     const barHeight = 5;
     const barX = enemy.x - barWidth / 2;
@@ -4726,13 +5784,81 @@ function drawBossHealthBar() {
 function drawTrajectory(trajectoryConfig) {
   context.strokeStyle = trajectoryConfig.color;
   context.lineWidth = 3;
-  context.beginPath();
-  for (let x = 0; x <= LOGICAL_WIDTH; x += 4) {
-    const y = calculateTrajectoryY(trajectoryConfig, x);
-    if (x === 0) context.moveTo(x, y);
-    else context.lineTo(x, y);
+  const geometry = getCachedTrajectoryGeometry(trajectoryConfig.trajectory);
+  if (geometry.path) {
+    context.stroke(geometry.path);
+    return;
   }
-  context.stroke();
+
+  geometry.segments.forEach((segment) => {
+    if (segment.length < 2) return;
+    context.beginPath();
+    context.moveTo(segment[0].x, segment[0].y);
+    for (let index = 1; index < segment.length; index += 1) {
+      context.lineTo(segment[index].x, segment[index].y);
+    }
+    context.stroke();
+  });
+}
+
+function getCachedTrajectoryGeometry(trajectory) {
+  const key = getTrajectoryCacheKey(trajectory);
+  if (trajectoryRenderCache.has(key)) return trajectoryRenderCache.get(key);
+
+  const supportsPath2D = typeof Path2D === "function";
+  const path = supportsPath2D ? new Path2D() : null;
+  const segments = [];
+  let currentSegment = [];
+  let drawingPath = false;
+  const sample = { y: 0, valid: true, alpha: 1 };
+
+  for (let x = 0; x <= LOGICAL_WIDTH; x += TRAJECTORY_DEBUG_SAMPLE_STEP) {
+    writeTrajectorySample(trajectory, x, sample);
+    if (!sample.valid) {
+      if (currentSegment.length) segments.push(currentSegment);
+      currentSegment = [];
+      drawingPath = false;
+      continue;
+    }
+
+    if (path) {
+      if (!drawingPath) {
+        path.moveTo(x, sample.y);
+        drawingPath = true;
+      } else {
+        path.lineTo(x, sample.y);
+      }
+    } else {
+      currentSegment.push({ x, y: sample.y });
+    }
+  }
+  if (currentSegment.length) segments.push(currentSegment);
+
+  const geometry = { path, segments };
+  trajectoryRenderCache.set(key, geometry);
+  return geometry;
+}
+
+function getTrajectoryCacheKey(trajectory) {
+  return [
+    trajectory.type,
+    trajectory.midline,
+    trajectory.amplitude,
+    trajectory.period,
+    trajectory.phase,
+    trajectory.sinAmplitude,
+    trajectory.sinPeriod,
+    trajectory.sinPhase,
+    trajectory.cosAmplitude,
+    trajectory.cosPeriod,
+    trajectory.cosPhase,
+    trajectory.divisor,
+    trajectory.validMinY,
+    trajectory.validMaxY,
+    trajectory.minAbsCos,
+    trajectory.fadeAbsCos,
+    trajectory.maxOffset,
+  ].join("|");
 }
 
 function drawTankCoordinates(entity, label, color) {
@@ -4805,7 +5931,7 @@ function drawEnemyCoordinates(enemy) {
 
   context.fillStyle = enemy.color;
   drawDebugText(
-    `${enemy.label}: ${enemy.trajectory.type}, X=${enemy.x.toFixed(1)}, Y=${enemy.y.toFixed(1)}, HP=${enemy.hp}/${enemy.maxHp}, midline=${enemy.midline}`,
+    `${enemy.label}: ${enemy.trajectory.type}, X=${enemy.x.toFixed(1)}, Y=${enemy.y.toFixed(1)}, HP=${enemy.hp}/${enemy.maxHp}, midline=${enemy.midline}, visible=${enemy.visible !== false}`,
     left,
     Math.max(18, top - 10),
   );
@@ -4856,6 +5982,8 @@ function updateGameplay(deltaSeconds) {
   explosionManager.update(deltaSeconds);
   enemyDeathVisualManager.update(deltaSeconds);
   laserTankImpactManager.update(deltaSeconds);
+  asymptoteImpactManager.update(deltaSeconds);
+  spectralImpactManager.update(deltaSeconds);
   projectileImpactManager.update(deltaSeconds);
   rocketExplosionManager.update(deltaSeconds);
   groundLaserImpactFlashManager.update(deltaSeconds);
@@ -4865,6 +5993,9 @@ function updateGameplay(deltaSeconds) {
 
 function updatePlayerDying(deltaSeconds) {
   explosionManager.update(deltaSeconds);
+  laserTankImpactManager.update(deltaSeconds);
+  asymptoteImpactManager.update(deltaSeconds);
+  spectralImpactManager.update(deltaSeconds);
   projectileImpactManager.update(deltaSeconds);
   rocketExplosionManager.update(deltaSeconds);
   rocketManager.updateSmoke(deltaSeconds);
@@ -4884,6 +6015,7 @@ function updateGame(deltaSeconds) {
 
   if (gameState.status === GAME_STATES.BOSS_DEFEATED) {
     explosionManager.update(deltaSeconds);
+    spectralImpactManager.update(deltaSeconds);
     projectileImpactManager.update(deltaSeconds);
     rocketExplosionManager.update(deltaSeconds);
     rocketManager.updateSmoke(deltaSeconds);
@@ -4893,6 +6025,16 @@ function updateGame(deltaSeconds) {
 
 function positionTankSprite() {
   tankSprite.style.display = tank.visible ? "block" : "none";
+  const asymptoteIntensity = Math.min(1, tank.asymptoteHitFlash / 0.34);
+  const spectralIntensity = Math.min(1, tank.spectralHitFlash / 0.42);
+  if (asymptoteIntensity > 0 || spectralIntensity > 0) {
+    const intensity = Math.max(asymptoteIntensity, spectralIntensity);
+    const primaryColor = spectralIntensity > asymptoteIntensity ? "rgba(120, 205, 255, 0.98)" : "rgba(255, 74, 230, 0.95)";
+    const secondaryColor = spectralIntensity > asymptoteIntensity ? "rgba(168, 96, 255, 0.9)" : "rgba(95, 236, 255, 0.85)";
+    tankSprite.style.filter = `brightness(${1 + intensity * 1.35}) drop-shadow(0 0 ${Math.round(22 * intensity)}px ${primaryColor}) drop-shadow(0 0 ${Math.round(18 * intensity)}px ${secondaryColor})`;
+  } else {
+    tankSprite.style.filter = "";
+  }
   positionSpriteFromTopLeft(tankSprite, tank);
 }
 
@@ -4909,8 +6051,11 @@ function render(currentTime) {
   drawRockets();
   drawBossSpecialTelegraph();
   drawBossSpectralBalls();
+  drawBossAsymptoteRays();
   drawEnemyLasers();
   drawLaserTankImpacts();
+  drawAsymptoteImpacts();
+  drawSpectralImpacts();
   drawProjectileImpacts();
   drawRocketExplosions();
   drawGroundLaserImpactFlashes();

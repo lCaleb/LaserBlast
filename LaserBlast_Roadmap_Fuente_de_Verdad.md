@@ -196,11 +196,19 @@ Este valor podrá calibrarse durante las pruebas del Nivel 4.
 
 - Inicia con 4 cañones.
 - Conserva la mejora de cadencia del Nivel 4.
-- Heavy durante el Nudo -> mejora de daño.
+- No usa Heavy.
+- Mejora de daño durante el Nudo mediante pickup propio hecho con Canvas.
 - Valor de referencia actual:
 
 ```text
 projectileDamage 2 -> 3
+```
+
+- Rocket Launcher evoluciona de 2 a 3 cohetes por lanzamiento.
+- Checkpoint de partida normal:
+
+```text
+checkpoint.normalKillTrigger = 29
 ```
 
 Este valor podrá calibrarse durante las pruebas del Nivel 5.
@@ -739,15 +747,60 @@ y = 180 + 45 sin((2π/600)x) + 25 cos((2π/300)x)
   - ambos triggers son independientes y ocurren una sola vez por combate.
 - Pendiente: prueba completa de gameplay y ajuste fino de balance.
 
-### Nivel 5 — PENDIENTE
+### Nivel 5 — PRIMERA VERSIÓN IMPLEMENTADA
 
-- Enemigos con combinaciones controladas.
-- Inicia con 4 cañones y cadencia mejorada.
-- Heavy durante Nudo -> mejora de daño.
-- Referencia: `projectileDamage 2 -> 3`.
-- Boss 5.
-- Fase especial con secante.
-- Victoria final.
+- Nivel 5 es el cierre del juego.
+- Enemigos con combinaciones controladas de:
+  - seno con desfase;
+  - frecuencia más agresiva;
+  - seno + coseno;
+  - secante opcional/desactivable en el Nudo.
+- Inicia con 4 cañones y cadencia mejorada (`0.07s`).
+- No usa Heavy.
+- Pickup propio de daño hecho con Canvas en kill normal `30`:
+  - `projectileDamage 2 -> 3`;
+  - arma permanece en nivel `4`;
+  - cadencia permanece mejorada.
+- Checkpoint de Nivel 5 en kill normal `29`.
+- Rocket Launcher inicia con 2 cohetes y evoluciona a 3 cohetes en kill normal `40`.
+- Rocket x3 usa lanzamiento escalonado:
+  - misil 1: `0s`;
+  - misil 2: `0.75s`;
+  - misil 3: `1.5s`.
+- Boss 5 usa `assets/gif/JefeFin.gif`.
+- Boss 5 implementa movimiento principal seno + coseno según roadmap.
+- Boss 5 implementa fase especial con secante:
+  - desaparece al acercarse a ramas inválidas/asíntotas;
+  - reaparece cuando la siguiente rama produce valores visibles válidos;
+  - mientras está invisible no recibe daño.
+- Boss 5 agrega Rayos de Asíntota sobre `x = 150, 450, 750, 1050`.
+- Calibración posterior:
+  - drop garantizado de `50 HP` antes de iniciar Boss 5 al completar `52` kills;
+  - el Boss espera a que el drop se recoja o expire antes de aparecer;
+  - Boss 5 refleja su sprite horizontalmente cuando cambia de dirección;
+  - fase secante extendida visualmente hacia ramas superiores más altas y rama inferior más ancha;
+  - render debug de trayectorias cacheado para reducir cálculo visual repetido durante secante.
+- Calibración de duración:
+  - HP Boss 5: `3200`;
+  - fireInterval láser normal Boss 5: `1.15s`;
+  - daño, movimiento, fase secante, Rayos de Asíntota, Rocket y cura previa se mantienen sin cambios.
+- Recuperación durante Boss 5:
+  - tanque al `50%` o menos: drop de `40 HP`;
+  - tanque al `25%` o menos: drop de `40 HP`;
+  - Boss 5 al `50%` o menos: drop de `40 HP`;
+  - cada trigger ocurre una sola vez por combate.
+- Mecánica heredada:
+  - reutiliza ataque de bolas espectrales del Boss 4;
+  - `3` bolas;
+  - intervalo inicial `14s`;
+  - no se solapa con fase secante ni Rayos de Asíntota.
+  - impactos espectrales propios al golpear tanque o suelo:
+    - rayos cortos;
+    - anillo de energía;
+    - partículas azul/violeta.
+    - el impacto de suelo se dispara al cruzar la línea de suelo, no al salir de pantalla;
+    - el impacto al tanque agrega flash directo sobre el sprite DOM para que sea visible sobre el GIF.
+- Pendiente: prueba completa de gameplay, victoria final y ajuste fino de balance.
 
 ---
 
@@ -812,6 +865,47 @@ Boss reaparece
 ```
 
 Esto debe explicarse como traducción de una propiedad matemática real a una mecánica visual.
+
+Primera versión implementada:
+
+- La fase secante usa límites internos para evitar valores infinitos o extremos no controlados.
+- Mientras el Boss está fuera de una rama visible válida:
+  - su sprite se desvanece;
+  - no dispara láser normal;
+  - no puede recibir daño.
+- Cuando vuelve a una rama válida, reaparece y continúa el combate.
+- Calibración visual posterior:
+  - rango visible: `Y 8–410`;
+  - `minAbsCos = 0.10`;
+  - `fadeAbsCos = 0.18`;
+  - límite interno de offset: `300`.
+- Optimización de rendimiento:
+  - cálculo de trayectoria en gameplay reutiliza una muestra temporal para evitar crear objetos por frame;
+  - render debug de trayectorias usa geometría cacheada;
+  - cuando el navegador lo soporta, la curva debug se guarda como `Path2D`;
+  - muestreo visual debug de trayectoria cada `8px`.
+
+Ataque especial ligado a las asíntotas:
+
+- Posiciones:
+
+```text
+x = 150, 450, 750, 1050
+```
+
+- Se muestran columnas verticales de telegraph antes del impacto.
+- Luego se activan Rayos de Asíntota en secuencia.
+- Valores iniciales de calibración:
+  - telegraph: `0.85s`;
+  - duración activa: `0.42s`;
+  - separación de secuencia: `0.55s`;
+  - daño: `12`;
+  - ancho: `74`.
+- Feedback de impacto:
+  - destello y partículas breves al golpear el suelo;
+  - impacto visual adicional sobre el tanque;
+  - flash directo sobre el sprite del tanque para que el impacto sea visible sobre el GIF;
+  - cada rayo mantiene una sola aplicación de daño por activación.
 
 ---
 
