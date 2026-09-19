@@ -37,6 +37,7 @@ const startGameButton = document.querySelector("#start-game-button");
 
 const ENEMY_SPEED = 180;
 const TANK_SPEED = 260;
+const TANK_MOVE_SPEED_NOT_FIRING_MULTIPLIER = 1.40;
 const PROJECTILE_SPEED = 520;
 const TANK_WIDTH = 165;
 const TANK_HEIGHT = 82;
@@ -239,8 +240,8 @@ const LEVEL_CONFIG = {
     boss: {
       asset: "assets/gif/Jefe2.gif",
       label: "Boss 2",
-      width: 159,
-      height: 120,
+      width: 207,
+      height: 156,
       visualOffsetX: 0,
       visualOffsetY: 0,
       maxHp: 800,
@@ -259,15 +260,22 @@ const LEVEL_CONFIG = {
         length: 58,
         lineWidth: 7,
         type: "boss",
+        colors: {
+          fade: "rgba(255, 190, 28, 0)",
+          core: "rgba(255, 205, 46, 0.88)",
+          tip: "rgba(255, 250, 190, 1)",
+          glowOuter: "rgba(255, 184, 28, 0.28)",
+          glowInner: "rgba(255, 220, 74, 0.62)",
+        },
       },
       attackPattern: {
         sequence: [1, 1, 2],
         doubleSpreadDegrees: 10,
       },
       projectileHitbox: {
-        insetX: 14,
-        topOffset: -38,
-        bottomOffset: 20,
+        insetX: 18,
+        topOffset: -49,
+        bottomOffset: 26,
       },
       deathExplosion: {
         asset: TANK_DEATH_EXPLOSION_ASSET,
@@ -291,7 +299,7 @@ const LEVEL_CONFIG = {
     },
     drops: {
       health: {
-        dropChance: 0.3,
+        dropChance: 0.2,
         healAmount: 25,
         width: 42,
         height: 42,
@@ -647,6 +655,7 @@ const enemyLaserManager = {
       length: laserConfig.length ?? ENEMY_LASER_LENGTH,
       lineWidth: laserConfig.lineWidth ?? ENEMY_LASER_LINE_WIDTH,
       type: laserConfig.type ?? "normal",
+      colors: laserConfig.colors,
     };
 
     this.lasers.push(laser);
@@ -1841,7 +1850,8 @@ function updateDebugPresentationPanelVisibility() {
 function updateTank(deltaSeconds) {
   const direction = Number(input.right) - Number(input.left);
   const previousX = tank.x;
-  tank.x += direction * TANK_SPEED * deltaSeconds;
+  const speedMultiplier = input.fire ? 1 : TANK_MOVE_SPEED_NOT_FIRING_MULTIPLIER;
+  tank.x += direction * TANK_SPEED * speedMultiplier * deltaSeconds;
   tank.x = Math.max(0, Math.min(LOGICAL_WIDTH - tank.width, tank.x));
   const movementDirection = Math.sign(tank.x - previousX);
   tankDustManager.update(deltaSeconds, movementDirection);
@@ -2514,11 +2524,18 @@ function drawEnemyLasers() {
     const endY = laser.y - Math.sin(laser.theta) * laser.length;
     const isBossLaser = laser.type === "boss";
     const lineWidth = laser.lineWidth ?? ENEMY_LASER_LINE_WIDTH;
+    const bossLaserColors = laser.colors ?? {
+      fade: "rgba(255, 20, 20, 0)",
+      core: "rgba(255, 34, 34, 0.86)",
+      tip: "rgba(255, 220, 220, 1)",
+      glowOuter: "rgba(255, 20, 20, 0.25)",
+      glowInner: "rgba(255, 75, 75, 0.58)",
+    };
     const gradient = context.createLinearGradient(endX, endY, laser.x, laser.y);
     if (isBossLaser) {
-      gradient.addColorStop(0, "rgba(255, 20, 20, 0)");
-      gradient.addColorStop(0.45, "rgba(255, 34, 34, 0.86)");
-      gradient.addColorStop(1, "rgba(255, 220, 220, 1)");
+      gradient.addColorStop(0, bossLaserColors.fade);
+      gradient.addColorStop(0.45, bossLaserColors.core);
+      gradient.addColorStop(1, bossLaserColors.tip);
     } else {
       gradient.addColorStop(0, "rgba(72, 255, 128, 0)");
       gradient.addColorStop(0.45, "rgba(92, 255, 150, 0.75)");
@@ -2533,14 +2550,14 @@ function drawEnemyLasers() {
     context.lineTo(laser.x, laser.y);
     context.stroke();
 
-    context.strokeStyle = isBossLaser ? "rgba(255, 20, 20, 0.25)" : "rgba(62, 255, 126, 0.22)";
+    context.strokeStyle = isBossLaser ? bossLaserColors.glowOuter : "rgba(62, 255, 126, 0.22)";
     context.lineWidth = lineWidth + (isBossLaser ? 13 : 8);
     context.beginPath();
     context.moveTo(endX, endY);
     context.lineTo(laser.x, laser.y);
     context.stroke();
 
-    context.strokeStyle = isBossLaser ? "rgba(255, 75, 75, 0.58)" : "rgba(91, 255, 150, 0.45)";
+    context.strokeStyle = isBossLaser ? bossLaserColors.glowInner : "rgba(91, 255, 150, 0.45)";
     context.lineWidth = lineWidth + (isBossLaser ? 7 : 4);
     context.beginPath();
     context.moveTo(endX, endY);

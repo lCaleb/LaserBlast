@@ -1,6 +1,21 @@
 # LaserBlast - Audio licenses
 
-Estas pistas fueron seleccionadas solo para la futura integracion del sistema de musica. En este cambio no se implemento audio en el juego.
+Estas pistas se usan como musica por stage en el juego.
+
+Estado actual:
+
+- `inicio.ogg` se usa en el stage Inicio.
+- `nudo.ogg` se usa en el stage Nudo.
+- `boss.ogg` se usa en el stage Boss.
+
+SFX todavia pendiente:
+
+- disparo;
+- impacto;
+- explosion;
+- recoger power-up;
+- dano al tanque;
+- pausa.
 
 Fuente general verificada: Kenney's Sound Pack / Music Loops.
 

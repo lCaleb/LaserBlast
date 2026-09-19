@@ -54,11 +54,16 @@ Funciones utilizadas o planificadas:
 Actualmente están cerrados/implementados:
 
 - Nivel 1 completo y balanceado.
+- Nivel 2 implementado y jugable a nivel de configuración/código.
+- Boss 2 implementado.
 - Menú principal definitivo.
+- Menú principal y overlays en ajuste responsive para pantallas pequeñas.
 - Sistema global de pausa.
 - Game Over.
 - Nivel Superado.
 - Panel de presentación/debug con `Q`.
+- Selector de presentación/debug con Nivel 1 y Nivel 2.
+- Música por stage implementada para Inicio, Nudo y Boss.
 - Deploy en Netlify conectado a `main` con despliegue automático por push.
 - Versionador visual en pantalla para verificar despliegues.
 
@@ -604,23 +609,27 @@ Existe un versionador visible en pantalla para verificar si el despliegue tomó 
 
 ## 22. Roadmap niveles 2–5
 
-No implementar sin una tarea explícita.
+Nivel 2 ya fue implementado en código.
 
-### Nivel 2
+Niveles 3–5 no deben implementarse sin una tarea explícita.
 
-- Enemigos con transformación de amplitud y período.
-- Inicia conservando 2 cañones.
+### Nivel 2 — IMPLEMENTADO / PENDIENTE DE BALANCE FINAL
+
+- Enemigos con transformación de amplitud y período implementados.
+- Inicia con 2 cañones.
 - Heavy durante Nudo -> 3 cañones.
-- Boss 2.
+- Boss 2 implementado con `assets/gif/Jefe2.gif`.
+- Selector debug/presentación permite cargar Nivel 2.
+- Pendiente: prueba completa de gameplay y ajuste fino de balance si hace falta.
 
-### Nivel 3
+### Nivel 3 — PENDIENTE
 
 - Enemigos con frecuencia/ciclos.
 - Inicia conservando 3 cañones.
 - Heavy durante Nudo -> 4 cañones.
 - Boss 3.
 
-### Nivel 4
+### Nivel 4 — PENDIENTE
 
 - Enemigos con fase/desfase.
 - Inicia con 4 cañones.
@@ -628,7 +637,7 @@ No implementar sin una tarea explícita.
 - Referencia: `fireInterval 0.09 -> 0.07`.
 - Boss 4 seno + coseno.
 
-### Nivel 5
+### Nivel 5 — PENDIENTE
 
 - Enemigos con combinaciones controladas.
 - Inicia con 4 cañones y cadencia mejorada.
@@ -704,22 +713,30 @@ Esto debe explicarse como traducción de una propiedad matemática real a una me
 
 ---
 
-## 25. Audio — PENDIENTE
+## 25. Audio — PARCIALMENTE IMPLEMENTADO
 
-No implementar todavía.
+Música por stage implementada.
 
-Sistema planificado:
+Archivos actuales:
 
-- música separada para Inicio;
-- música separada para Nudo;
-- música separada para Boss;
-- SFX posteriores:
-  - disparo;
-  - impacto;
-  - explosión;
-  - recoger power-up;
-  - daño al tanque;
-  - pausa.
+- `assets/audio/music/inicio.ogg`
+- `assets/audio/music/nudo.ogg`
+- `assets/audio/music/boss.ogg`
+
+El juego cambia la música según el stage:
+
+- Inicio;
+- Nudo;
+- Boss.
+
+Pendiente:
+
+- SFX de disparo;
+- SFX de impacto;
+- SFX de explosión;
+- SFX de recoger power-up;
+- SFX de daño al tanque;
+- SFX de pausa.
 
 Por políticas del navegador, el audio debe iniciar después de interacción del jugador, por ejemplo al presionar `INICIAR`.
 
@@ -729,14 +746,15 @@ Por políticas del navegador, el audio debe iniciar después de interacción del
 
 Siguientes sistemas o niveles se implementarán por tareas separadas:
 
-1. Sistema global de audio.
+1. SFX del sistema de audio.
 2. Checkpoints persistentes por nivel.
-3. Nivel 2.
-4. Boss 2.
-5. Niveles 3–5.
-6. Boss final y victoria final.
-7. Documento académico.
-8. Preparación de exposición.
+3. Balance/prueba final del Nivel 2.
+4. Nivel 3.
+5. Boss 3.
+6. Niveles 4–5.
+7. Boss final y victoria final.
+8. Documento académico.
+9. Preparación de exposición.
 
 ---
 
