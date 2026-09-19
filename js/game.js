@@ -215,7 +215,7 @@ const LEVEL_CONFIG = {
     },
   },
   2: {
-    enabled: false,
+    enabled: true,
     start: {
       stage: STAGES.INICIO,
       tankX: TANK_START_X,
